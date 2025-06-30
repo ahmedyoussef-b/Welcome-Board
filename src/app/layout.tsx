@@ -1,10 +1,10 @@
-import type {Metadata} from 'next';
-import { Toaster } from "@/components/ui/toaster";
-import './globals.css';
+// src/app/layout.tsx
+import type { Metadata } from 'next';
+import './globals.css'; // Global styles
 
 export const metadata: Metadata = {
-  title: 'Welcome Board',
-  description: 'A beautiful, customizable welcome board.',
+  title: 'RoleAuthFlow App',
+  description: 'Role-based authentication flow application',
 };
 
 export default function RootLayout({
@@ -13,15 +13,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html suppressHydrationWarning> 
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400..700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body>
         {children}
-        <Toaster />
       </body>
     </html>
   );
