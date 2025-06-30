@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ScheduleEditorProps {
     wizardData: WizardData;
-    scheduleData: Lesson[];
     onBackToWizard: () => void;
 }
 
@@ -30,7 +29,7 @@ const formatUtcTime = (dateString: string | Date): string => {
 };
 
 
-const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleData, onBackToWizard }) => {
+const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWizard }) => {
     const dispatch = useAppDispatch();
     const sensors = useSensors(
         useSensor(MouseSensor, {
@@ -58,12 +57,12 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
     const filteredSchedule = useMemo(() => {
         if (viewMode === 'class') {
             if (!selectedClassId) return [];
-            return scheduleData.filter(lesson => lesson.classId === parseInt(selectedClassId, 10));
+            return schedule.filter(lesson => lesson.classId === parseInt(selectedClassId, 10));
         } else { // teacher view
             if (!selectedTeacherId) return [];
-            return scheduleData.filter(lesson => lesson.teacherId === selectedTeacherId);
+            return schedule.filter(lesson => lesson.teacherId === selectedTeacherId);
         }
-    }, [scheduleData, viewMode, selectedClassId, selectedTeacherId]);
+    }, [schedule, viewMode, selectedClassId, selectedTeacherId]);
 
     const getSubjectBgColor = (subjectId: number): string => {
         const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
@@ -125,10 +124,10 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
                 const lessonId = parseInt(active.id.toString().replace('lesson-', ''));
                 const [, newDay, newTime] = over.id.toString().split('-');
 
-                const lessonToMove = scheduleData.find(l => l.id === lessonId);
+                const lessonToMove = schedule.find(l => l.id === lessonId);
                 if (!lessonToMove) return;
 
-                const teacherIsBusy = scheduleData.some(
+                const teacherIsBusy = schedule.some(
                     l => l.id !== lessonId && l.teacherId === lessonToMove.teacherId && l.day === newDay && formatUtcTime(l.startTime).startsWith(newTime)
                 );
                 if (teacherIsBusy) {
@@ -136,7 +135,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
                     return;
                 }
 
-                const classIsBusy = scheduleData.some(
+                const classIsBusy = schedule.some(
                     l => l.id !== lessonId && l.classId === lessonToMove.classId && l.day === newDay && formatUtcTime(l.startTime).startsWith(newTime)
                 );
                 if (classIsBusy) {
@@ -161,7 +160,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
             if (over.id.toString().startsWith('lesson-')) {
                 const lessonIdStr = over.id.toString().replace('lesson-', '');
                 const lessonId = parseInt(lessonIdStr, 10);
-                const lesson = scheduleData.find(l => l.id === lessonId);
+                const lesson = schedule.find(l => l.id === lessonId);
                 const teacher = wizardData.teachers.find(t => t.id === lesson?.teacherId);
 
                 if (teacher && teacher.subjects.some((s: Subject) => s.id === subjectId)) {
@@ -220,7 +219,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
     };
 
     const handleSaveChanges = async () => {
-        const result = await dispatch(saveSchedule(scheduleData as SchedulableLesson[]));
+        const result = await dispatch(saveSchedule(schedule as SchedulableLesson[]));
         if(saveSchedule.fulfilled.match(result)){
             toast({ title: "Succès", description: "L'emploi du temps a été sauvegardé avec succès." });
         } else {

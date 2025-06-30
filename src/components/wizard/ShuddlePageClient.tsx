@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye, Loader2, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useAppSelector } from '@/hooks/redux-hooks';
@@ -237,7 +237,7 @@ export default function ShuddlePageClient() {
             case 'wizard':
                 return wizardComponent;
             case 'edit':
-                 return <ScheduleEditor wizardData={wizardData} scheduleData={schedule} onBackToWizard={() => setMode('wizard')} />;
+                 return <ScheduleEditor wizardData={wizardData} onBackToWizard={() => setMode('wizard')} />;
             default:
                 return wizardComponent;
         }
