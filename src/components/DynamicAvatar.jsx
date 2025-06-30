@@ -1,13 +1,7 @@
-// components/DynamicAvatar.tsx
+// components/DynamicAvatar.jsx
 import Image from 'next/image';
-import type { FC } from 'react';
 
-interface DynamicAvatarProps {
-  seed?: string;
-  imageUrl?: string | null;
-}
-
-const DynamicAvatar: FC<DynamicAvatarProps> = ({ seed = Math.random().toString(36).substring(2), imageUrl = null }) => {
+const DynamicAvatar = ({ seed = Math.random().toString(36).substring(2), imageUrl = null }) => {
   // Si une URL d'image est fournie, l'utiliser. Sinon, générer un avatar de secours.
   const finalImageUrl = imageUrl || `https://api.dicebear.com/7.x/identicon/png?seed=${seed}`;
 
