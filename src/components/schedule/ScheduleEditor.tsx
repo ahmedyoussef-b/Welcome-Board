@@ -26,7 +26,21 @@ type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
 
 const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleData, onBackToWizard }) => {
     const dispatch = useAppDispatch();
-    const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
+    const sensors = useSensors(
+        useSensor(MouseSensor, {
+            // Require the mouse to move by 10 pixels before activating
+            activationConstraint: {
+                distance: 10,
+            },
+        }),
+        useSensor(TouchSensor, {
+            // Press delay of 250ms, with a tolerance of 5px of movement
+            activationConstraint: {
+                delay: 250,
+                tolerance: 5,
+            },
+        })
+    );
     
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class');
     const [selectedClassId, setSelectedClassId] = useState<string>(wizardData.classes[0]?.id.toString() || '');
