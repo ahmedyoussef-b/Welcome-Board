@@ -5,7 +5,6 @@ import jwt, { type SignOptions, type Secret } from 'jsonwebtoken';
 import prisma from "@/lib/prisma";
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { SafeUser, Role as AppRole } from '@/types/index'; 
-import { Role as PrismaRole } from "@prisma/client"; 
 
 const JWT_SECRET_KEY = process.env.JWT_SECRET_KEY;
 const jwtExpirationEnv = process.env.JWT_ACCESS_TOKEN_EXPIRATION_TIME;
@@ -43,25 +42,9 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
     }
     
-    // --- New logic to fetch profile and construct a proper name ---
-    let profile: any = null;
-    let finalName = user.name || user.username || user.email;
+    // --- Simplified logic to rely on User.name ---
+    const finalName = user.name || user.username || user.email;
     const userRole = user.role as AppRole;
-
-    if (userRole === AppRole.TEACHER) {
-        profile = await prisma.teacher.findUnique({ where: { userId: user.id } });
-    } else if (userRole === AppRole.STUDENT) {
-        profile = await prisma.student.findUnique({ where: { userId: user.id } });
-    } else if (userRole === AppRole.PARENT) {
-        profile = await prisma.parent.findUnique({ where: { userId: user.id } });
-    } else if (userRole === AppRole.ADMIN) {
-        profile = await prisma.admin.findUnique({ where: { userId: user.id } });
-    }
-
-    if (profile && profile.name) {
-        finalName = `${profile.name} ${profile.surname || ''}`.trim();
-    }
-    // --- End of new logic ---
     
     const tokenPayload = {
         userId: user.id,

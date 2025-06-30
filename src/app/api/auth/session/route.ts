@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const cookieStore = await cookies();
+    const cookieStore = cookies();
     const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
     if (!token) {
@@ -42,13 +42,14 @@ export async function GET(req: NextRequest) {
       return clearResponse;
     }
     
-    const finalNameForResponse = user.name || user.username || user.email;
+    // --- Simplified logic to rely on User.name ---
+    const finalName = user.name || user.username || user.email;
 
     const { password: _, ...userScalars } = user;
 
     const safeUser: SafeUser = {
       ...userScalars,
-      name: finalNameForResponse,
+      name: finalName,
       role: user.role as AppRole,
     };
     
