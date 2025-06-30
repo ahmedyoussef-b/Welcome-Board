@@ -1,7 +1,7 @@
 // src/components/wizard/ShuddlePageClient.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -70,7 +70,7 @@ export default function ShuddlePageClient() {
       }
     }, [schedule, scheduleStatus]);
   
-    const wizardData: WizardData = {
+    const wizardData: WizardData = useMemo(() => ({
       school: schoolConfig,
       classes: classes,
       subjects: subjects,
@@ -79,7 +79,7 @@ export default function ShuddlePageClient() {
       lessonRequirements: lessonRequirements,
       teacherConstraints: teacherConstraints,
       subjectRequirements: subjectRequirements,
-    };
+    }), [schoolConfig, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints, subjectRequirements]);
   
     const handleNext = () => {
       if (currentStep < steps.length - 1) {
@@ -89,7 +89,7 @@ export default function ShuddlePageClient() {
   
     const handlePrevious = () => {
       if (currentStep > 0) {
-        setCurrentStep(currentStep - 1);
+        setCurrentStep(currentStep + 1);
       }
     };
   

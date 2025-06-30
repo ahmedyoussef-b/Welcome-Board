@@ -259,25 +259,39 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
   const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
 
-  const scheduleGrid = useMemo(() => {
+  const { scheduleGrid, spannedSlots } = useMemo(() => {
     const mergedLessons = mergeConsecutiveLessons(scheduleData, wizardData);
-    const grid: { [key: string]: Lesson[] } = {};
+    const grid: { [key: string]: { lesson: Lesson, rowSpan: number } } = {};
+    const spanned = new Set<string>();
+
     mergedLessons.forEach((lesson) => {
       const day = lesson.day;
       const time = formatUtcTime(lesson.startTime);
       const cellId = `${day}-${time}`;
-      if (!grid[cellId]) {
-        grid[cellId] = [];
+
+      if (spanned.has(cellId)) return;
+
+      const startTime = new Date(lesson.startTime);
+      const endTime = new Date(lesson.endTime);
+      const durationInMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
+      const rowSpan = Math.max(1, Math.round(durationInMinutes / 60));
+
+      grid[cellId] = { lesson, rowSpan };
+
+      if (rowSpan > 1) {
+        for (let i = 1; i < rowSpan; i++) {
+          const nextTimeSlotIndex = timeSlots.indexOf(time) + i;
+          if (nextTimeSlotIndex < timeSlots.length) {
+            const nextTimeSlot = timeSlots[nextTimeSlotIndex];
+            spanned.add(`${day}-${nextTimeSlot}`);
+          }
+        }
       }
-      grid[cellId].push(lesson);
     });
-    return grid;
+    return { scheduleGrid: grid, spannedSlots: spanned };
   }, [scheduleData, wizardData]);
   
   const exportToPDF = () => { window.print(); };
-
-  // Logic to handle multi-hour lessons
-  const occupiedSlots = new Set<string>();
 
   return (
     <div className="space-y-6 mt-4">
@@ -317,33 +331,16 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                     const dayEnum = dayMapping[day];
                     const cellId = `${dayEnum}-${time}`;
 
-                    if (occupiedSlots.has(cellId)) {
-                        return null; // This cell is covered by a rowSpan from a previous row
+                    if (spannedSlots.has(cellId)) {
+                        return null; // This cell is covered by a rowSpan
                     }
 
-                    const lessonsInSlot = scheduleGrid[cellId] || [];
+                    const cellData = scheduleGrid[cellId];
                     
-                    if (lessonsInSlot.length > 0) {
-                        const lesson = lessonsInSlot[0];
-                        
-                        const startTime = new Date(lesson.startTime);
-                        const endTime = new Date(lesson.endTime);
-                        const durationInMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
-                        const rowSpan = Math.max(1, Math.round(durationInMinutes / 60));
-
-                        if (rowSpan > 1) {
-                            for (let i = 1; i < rowSpan; i++) {
-                                const nextTimeSlotIndex = timeSlots.indexOf(time) + i;
-                                if (nextTimeSlotIndex < timeSlots.length) {
-                                  const nextTimeSlot = timeSlots[nextTimeSlotIndex];
-                                  occupiedSlots.add(`${dayEnum}-${nextTimeSlot}`);
-                                }
-                            }
-                        }
-                        
+                    if (cellData) {
                         return (
-                          <TableCell key={cellId} rowSpan={rowSpan} className="p-1 border align-top">
-                             <DraggableLesson lesson={lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
+                          <TableCell key={cellId} rowSpan={cellData.rowSpan} className="p-1 border align-top">
+                             <DraggableLesson lesson={cellData.lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
                           </TableCell>
                         );
                     } else {
