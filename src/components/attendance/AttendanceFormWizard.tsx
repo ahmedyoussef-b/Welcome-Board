@@ -1,6 +1,2 @@
-// This component is no longer used and has been replaced by AttendanceManager.tsx.
-// It is kept to avoid breaking the build process if imported somewhere, but its content is cleared.
-const AttendanceFormWizard = () => {
-  return null;
-};
-export default AttendanceFormWizard;
+// This component is obsolete and has been removed for code coherence.
+// The functionality is now handled by src/components/attendance/AttendanceManager.tsx

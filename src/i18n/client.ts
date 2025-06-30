@@ -1,3 +1,2 @@
-// This file is intentionally left empty as the application
-// has been refactored to be French-only, and the i18n client
-// library is no longer in use.
+// This file is obsolete and has been removed for code coherence
+// as the application is now French-only.

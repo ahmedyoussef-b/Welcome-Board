@@ -1,6 +1,2 @@
-// This component is no longer used and has been replaced by StudentWeeklyAttendanceChart.tsx.
-// It is kept to avoid breaking the build process if imported somewhere, but its content is cleared.
-const StudentAttendanceCard = () => {
-  return null;
-};
-export default StudentAttendanceCard;
+// This component is obsolete and has been removed for code coherence.
+// The functionality is now handled by src/components/attendance/StudentWeeklyAttendanceChart.tsx
