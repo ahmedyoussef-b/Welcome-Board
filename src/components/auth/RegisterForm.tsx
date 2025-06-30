@@ -134,7 +134,7 @@ export function RegisterForm() {
             <SelectValue placeholder="Sélectionnez votre rôle" /> {/* Texte français direct */}
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={Role.STUDENT}>Étudiant</SelectItem> {/* Texte français direct */}
+            {/* L'option "Étudiant" a été retirée pour la cohérence de l'application */}
             <SelectItem value={Role.TEACHER}>Enseignant</SelectItem> {/* Texte français direct */}
             <SelectItem value={Role.PARENT}>Parent</SelectItem> {/* Texte français direct */}
           </SelectContent>
