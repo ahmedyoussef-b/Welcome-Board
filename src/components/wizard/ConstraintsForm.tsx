@@ -72,6 +72,8 @@ const ConstraintsForm: React.FC = () => {
   const handleTimePreferenceChange = (subjectId: number, timePreference: 'ANY' | 'AM' | 'PM') => {
     dispatch(setSubjectTimePreference({ subjectId, timePreference }));
   };
+  
+  const labSubjectKeywords = ['physique', 'informatique', 'sciences', 'technique'];
 
   return (
     <Tabs defaultValue="teacher_constraints" className="w-full">
@@ -159,6 +161,18 @@ const ConstraintsForm: React.FC = () => {
                   const requirement = subjectRequirements.find(r => r.subjectId === subject.id);
                   const selectedRoomId = requirement ? String(requirement.requiredRoomId) : 'any';
                   const selectedTimePref = requirement ? requirement.timePreference : 'ANY';
+                  
+                  const subjectNameLower = subject.name.toLowerCase();
+                  const isLabSubject = labSubjectKeywords.some(keyword => subjectNameLower.includes(keyword));
+
+                  let availableRooms = salles;
+                  if (isLabSubject) {
+                    const subjectKeyword = labSubjectKeywords.find(k => subjectNameLower.includes(k));
+                    availableRooms = salles.filter(s => s.name.toLowerCase().includes('labo') && s.name.toLowerCase().includes(subjectKeyword!));
+                  } else {
+                    availableRooms = salles.filter(s => !s.name.toLowerCase().includes('labo'));
+                  }
+
                   return (
                     <div key={subject.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 gap-4">
                       <Label htmlFor={`subject-req-${subject.id}`} className="text-base font-medium flex-1 pt-2">{subject.name}</Label>
@@ -168,8 +182,8 @@ const ConstraintsForm: React.FC = () => {
                           <Select value={selectedRoomId} onValueChange={(value) => handleSubjectRequirementChange(subject.id, value)}>
                             <SelectTrigger className="mt-1" id={`subject-req-${subject.id}`}><SelectValue placeholder="Choisir une salle..." /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="any">N'importe quelle salle</SelectItem>
-                              {salles.map((salle) => <SelectItem key={salle.id} value={String(salle.id)}>{salle.name}</SelectItem>)}
+                              <SelectItem value="any">N'importe quelle salle disponible</SelectItem>
+                              {availableRooms.map((salle) => <SelectItem key={salle.id} value={String(salle.id)}>{salle.name}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         </div>
