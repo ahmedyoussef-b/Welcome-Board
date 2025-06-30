@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye } from 'lucide-react';
+import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useAppSelector } from '@/hooks/redux-hooks';
@@ -14,7 +14,7 @@ import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllSalles } from '@/lib/redux/features/classrooms/classroomsSlice';
 import { selectAllGrades } from '@/lib/redux/features/grades/gradesSlice';
-import { selectSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
+import { selectSchedule, selectScheduleStatus } from '@/lib/redux/features/schedule/scheduleSlice';
 import { selectLessonRequirements } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
 import { selectTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
 import { selectSubjectRequirements } from '@/lib/redux/features/subjectRequirementsSlice';
@@ -50,6 +50,7 @@ export default function ShuddlePageClient() {
     const rooms = useAppSelector(selectAllSalles);
     const grades = useAppSelector(selectAllGrades);
     const schedule = useAppSelector(selectSchedule);
+    const scheduleStatus = useAppSelector(selectScheduleStatus);
     const lessonRequirements = useAppSelector(selectLessonRequirements);
     const teacherConstraints = useAppSelector(selectTeacherConstraints);
     const subjectRequirements = useAppSelector(selectSubjectRequirements);
@@ -61,6 +62,13 @@ export default function ShuddlePageClient() {
       schoolDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
       sessionDuration: 60
     });
+
+    useEffect(() => {
+      // When the schedule data has been loaded from the server, decide the mode.
+      if (scheduleStatus === 'succeeded') {
+        setMode(schedule.length > 0 ? 'edit' : 'wizard');
+      }
+    }, [schedule, scheduleStatus]);
   
     const wizardData: WizardData = {
       school: schoolConfig,
@@ -116,6 +124,15 @@ export default function ShuddlePageClient() {
 
     const progress = ((currentStep + 1) / steps.length) * 100;
     
+    if (scheduleStatus === 'idle' || scheduleStatus === 'loading') {
+      return (
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="ml-4 text-muted-foreground">Chargement du planificateur...</p>
+        </div>
+      );
+    }
+
     const wizardComponent = (
         <>
             <div className="mb-8">
