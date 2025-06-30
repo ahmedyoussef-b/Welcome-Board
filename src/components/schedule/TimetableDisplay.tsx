@@ -223,7 +223,7 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     );
 };
 
-const DroppableEmptyCell = ({ day, timeSlot, disabled, wizardData, fullSchedule, isEditable }: { day: Day, timeSlot: string, disabled?: boolean, wizardData: WizardData; fullSchedule: Lesson[], isEditable: boolean }) => {
+const DroppableEmptyCell = ({ day, timeSlot, disabled, isHighlighted, highlightColor }: { day: Day, timeSlot: string, disabled?: boolean, isHighlighted?: boolean, highlightColor?: string | null }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
         disabled,
@@ -232,7 +232,11 @@ const DroppableEmptyCell = ({ day, timeSlot, disabled, wizardData, fullSchedule,
     return (
         <div 
             ref={setNodeRef}
-            className={`h-16 w-full rounded-md transition-colors relative group ${isOver ? 'bg-primary/20' : ''}`}
+            className={cn(
+                'h-16 w-full rounded-md transition-colors relative group', 
+                isHighlighted && highlightColor, 
+                isOver && 'bg-primary/20'
+            )}
         >
         </div>
     );
@@ -245,9 +249,11 @@ interface TimetableDisplayProps {
   isEditable?: boolean;
   onDeleteLesson?: (lessonId: number) => void;
   isDropDisabled?: boolean;
+  highlightedSlots?: string[];
+  activeDragColor?: string | null;
 }
 
-const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, scheduleData, isEditable = false, onDeleteLesson = () => {}, isDropDisabled = false }) => {
+const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, scheduleData, isEditable = false, onDeleteLesson = () => {}, isDropDisabled = false, highlightedSlots = [], activeDragColor = null }) => {
   const fullSchedule = useAppSelector(selectSchedule);
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
@@ -343,7 +349,13 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                     } else {
                         return (
                             <TableCell key={cellId} className="p-1 border align-top">
-                                <DroppableEmptyCell day={dayEnum} timeSlot={time} disabled={isDropDisabled} wizardData={wizardData} fullSchedule={fullSchedule} isEditable={isEditable} />
+                                <DroppableEmptyCell 
+                                  day={dayEnum} 
+                                  timeSlot={time} 
+                                  disabled={isDropDisabled} 
+                                  isHighlighted={highlightedSlots.includes(cellId)}
+                                  highlightColor={activeDragColor}
+                                />
                             </TableCell>
                         );
                     }

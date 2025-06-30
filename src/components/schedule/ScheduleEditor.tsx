@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent } from '@dnd-kit/core';
+import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent, type DragStartEvent, type DragCancelEvent } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot } from '@/lib/redux/features/schedule/scheduleSlice';
+import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot, selectSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
 import { toast } from '@/hooks/use-toast';
 import type { WizardData, Lesson, Subject, Day, TeacherWithDetails } from '@/types';
 import { ScheduleSidebar } from './ScheduleSidebar';
@@ -23,18 +23,22 @@ interface ScheduleEditorProps {
 
 type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
 
+const formatUtcTime = (dateString: string | Date): string => {
+    const date = new Date(dateString);
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    return `${hours}:00`;
+};
+
 
 const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleData, onBackToWizard }) => {
     const dispatch = useAppDispatch();
     const sensors = useSensors(
         useSensor(MouseSensor, {
-            // Require the mouse to move by 10 pixels before activating
             activationConstraint: {
                 distance: 10,
             },
         }),
         useSensor(TouchSensor, {
-            // Press delay of 250ms, with a tolerance of 5px of movement
             activationConstraint: {
                 delay: 250,
                 tolerance: 5,
@@ -45,7 +49,10 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class');
     const [selectedClassId, setSelectedClassId] = useState<string>(wizardData.classes[0]?.id.toString() || '');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>(wizardData.teachers[0]?.id || '');
+    const [highlightedSlots, setHighlightedSlots] = useState<string[]>([]);
+    const [activeDragColor, setActiveDragColor] = useState<string | null>(null);
 
+    const schedule = useAppSelector(selectSchedule);
     const scheduleStatus = useAppSelector(state => state.schedule.status);
 
     const filteredSchedule = useMemo(() => {
@@ -58,12 +65,61 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
         }
     }, [scheduleData, viewMode, selectedClassId, selectedTeacherId]);
 
+    const getSubjectBgColor = (subjectId: number): string => {
+        const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
+        const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
+        return subjectColors[index % subjectColors.length] || 'bg-muted';
+    };
+
+    const handleDragStart = (event: DragStartEvent) => {
+        const { active } = event;
+        const lesson = active.data.current?.lesson as Lesson | undefined;
+        
+        if (!lesson) {
+            setHighlightedSlots([]);
+            setActiveDragColor(null);
+            return;
+        }
+
+        const availableSlots: string[] = [];
+        const schoolDays = wizardData.school.schoolDays.map(d => d.toUpperCase() as Day);
+        const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+
+        schoolDays.forEach(day => {
+            timeSlots.forEach(time => {
+                const slotId = `${day}-${time}`;
+                const isOccupied = schedule.some(l => l.day === day && formatUtcTime(l.startTime) === time);
+                if (isOccupied) return;
+
+                const teacherIsBusy = schedule.some(
+                    l => l.id !== lesson.id && l.teacherId === lesson.teacherId && l.day === day && formatUtcTime(l.startTime) === time
+                );
+                const classIsBusy = schedule.some(
+                    l => l.id !== lesson.id && l.classId === lesson.classId && l.day === day && formatUtcTime(l.startTime) === time
+                );
+                
+                if (!teacherIsBusy && !classIsBusy) {
+                    availableSlots.push(slotId);
+                }
+            });
+        });
+
+        setHighlightedSlots(availableSlots);
+        setActiveDragColor(getSubjectBgColor(lesson.subjectId));
+    };
+
+    const handleDragCancel = () => {
+        setHighlightedSlots([]);
+        setActiveDragColor(null);
+    };
+
     const handleDragEnd = (event: DragEndEvent) => {
+        setHighlightedSlots([]);
+        setActiveDragColor(null);
         const { active, over } = event;
 
         if (!over) return;
         
-        // --- Dragging an existing lesson to an empty slot ---
         if (active.id.toString().startsWith('lesson-')) {
             if (over.id.toString().startsWith('empty-')) {
                 const lessonId = parseInt(active.id.toString().replace('lesson-', ''));
@@ -71,13 +127,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
 
                 const lessonToMove = scheduleData.find(l => l.id === lessonId);
                 if (!lessonToMove) return;
-
-                const formatUtcTime = (dateString: string | Date): string => {
-                    const date = new Date(dateString);
-                    const hours = String(date.getUTCHours()).padStart(2, '0');
-                    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-                    return `${hours}:${minutes}`;
-                };
 
                 const teacherIsBusy = scheduleData.some(
                     l => l.id !== lessonId && l.teacherId === lessonToMove.teacherId && l.day === newDay && formatUtcTime(l.startTime).startsWith(newTime)
@@ -101,7 +150,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
             return; 
         }
 
-        // --- Dragging a subject from the sidebar ---
         if (active.id.toString().startsWith('subject-')) {
             const subjectIdStr = active.id.toString().replace('subject-', '');
             const subjectId = parseInt(subjectIdStr, 10);
@@ -110,7 +158,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
             const subject = wizardData.subjects.find(s => s.id === subjectId);
             if (!subject) return;
 
-            // Case 1: Drop on an existing lesson to update it
             if (over.id.toString().startsWith('lesson-')) {
                 const lessonIdStr = over.id.toString().replace('lesson-', '');
                 const lessonId = parseInt(lessonIdStr, 10);
@@ -124,7 +171,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
                      toast({ variant: "destructive", title: "Assignation impossible", description: `L'enseignant(e) n'enseigne pas cette matière.` });
                 }
             }
-            // Case 2: Drop on an empty cell to create a new lesson
             else if (over.id.toString().startsWith('empty-')) {
                  if (viewMode === 'teacher') {
                     toast({
@@ -149,7 +195,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
                     return;
                 }
                 
-                const teacher = potentialTeachers[0]; // Pick the first available teacher
+                const teacher = potentialTeachers[0];
 
                 const newLesson: SchedulableLesson = {
                     name: `${subject.name} - ${wizardData.classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
@@ -183,7 +229,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
     };
 
     return (
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}>
             <div className="flex flex-col md:flex-row gap-6">
                  <div className="w-full md:w-1/4 lg:w-1/5 space-y-4">
                     <ScheduleSidebar subjects={wizardData.subjects} />
@@ -235,6 +281,8 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
                         isEditable={true} 
                         onDeleteLesson={handleDeleteLesson}
                         isDropDisabled={viewMode === 'teacher'}
+                        highlightedSlots={highlightedSlots}
+                        activeDragColor={activeDragColor}
                     />
                 </div>
             </div>
