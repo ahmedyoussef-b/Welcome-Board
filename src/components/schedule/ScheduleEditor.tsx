@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateLessonSubject, addLesson, removeLesson, saveSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
+import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot } from '@/lib/redux/features/schedule/scheduleSlice';
 import { toast } from '@/hooks/use-toast';
 import type { WizardData, Lesson, Subject, Day, TeacherWithDetails } from '@/types';
 import { ScheduleSidebar } from './ScheduleSidebar';
@@ -48,68 +48,109 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, scheduleDat
         const { active, over } = event;
 
         if (!over) return;
-
-        const subjectIdStr = active.id.toString().replace('subject-', '');
-        const subjectId = parseInt(subjectIdStr, 10);
-        if (isNaN(subjectId)) return;
         
-        const subject = wizardData.subjects.find(s => s.id === subjectId);
-        if (!subject) return;
+        // --- Dragging an existing lesson to an empty slot ---
+        if (active.id.toString().startsWith('lesson-')) {
+            if (over.id.toString().startsWith('empty-')) {
+                const lessonId = parseInt(active.id.toString().replace('lesson-', ''));
+                const [, newDay, newTime] = over.id.toString().split('-');
 
-        // Case 1: Drop on an existing lesson to update it
-        if (over.id.toString().startsWith('lesson-')) {
-            const lessonIdStr = over.id.toString().replace('lesson-', '');
-            const lessonId = parseInt(lessonIdStr, 10);
-            const lesson = scheduleData.find(l => l.id === lessonId);
-            const teacher = wizardData.teachers.find(t => t.id === lesson?.teacherId);
+                const lessonToMove = scheduleData.find(l => l.id === lessonId);
+                if (!lessonToMove) return;
 
-            if (teacher && teacher.subjects.some((s: Subject) => s.id === subjectId)) {
-                dispatch(updateLessonSubject({ lessonId, newSubjectId: subjectId }));
-                toast({ title: "Cours mis à jour", description: `La matière a été modifiée avec succès.` });
-            } else {
-                 toast({ variant: "destructive", title: "Assignation impossible", description: `L'enseignant(e) n'enseigne pas cette matière.` });
+                const formatUtcTime = (dateString: string | Date): string => {
+                    const date = new Date(dateString);
+                    const hours = String(date.getUTCHours()).padStart(2, '0');
+                    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+                    return `${hours}:${minutes}`;
+                };
+
+                const teacherIsBusy = scheduleData.some(
+                    l => l.id !== lessonId && l.teacherId === lessonToMove.teacherId && l.day === newDay && formatUtcTime(l.startTime).startsWith(newTime)
+                );
+                if (teacherIsBusy) {
+                    toast({ variant: "destructive", title: "Conflit d'horaire", description: `L'enseignant(e) est déjà occupé(e) sur ce créneau.` });
+                    return;
+                }
+
+                const classIsBusy = scheduleData.some(
+                    l => l.id !== lessonId && l.classId === lessonToMove.classId && l.day === newDay && formatUtcTime(l.startTime).startsWith(newTime)
+                );
+                if (classIsBusy) {
+                    toast({ variant: "destructive", title: "Conflit d'horaire", description: `La classe a déjà un cours sur ce créneau.` });
+                    return;
+                }
+
+                dispatch(updateLessonSlot({ lessonId, newDay: newDay as Day, newTime }));
+                toast({ title: "Cours déplacé", description: `Le cours a été déplacé avec succès.` });
             }
+            return; 
         }
-        // Case 2: Drop on an empty cell to create a new lesson
-        else if (over.id.toString().startsWith('empty-')) {
-             if (viewMode === 'teacher') {
-                toast({
-                    variant: "destructive",
-                    title: "Action non prise en charge",
-                    description: `Veuillez passer en vue "Par Classe" pour ajouter un nouveau cours.`
-                });
-                return;
-            }
-            if (!selectedClassId) return;
 
-            const [, day, time] = over.id.toString().split('-');
-            const [hour, minute] = time.split(':').map(Number);
-
-            const potentialTeachers = wizardData.teachers.filter(t => 
-                t.subjects.some(s => s.id === subjectId) &&
-                (t.classes.length === 0 || t.classes.some(c => c.id === parseInt(selectedClassId, 10)))
-            );
-
-            if (potentialTeachers.length === 0) {
-                toast({ variant: "destructive", title: "Assignation impossible", description: `Aucun enseignant disponible pour enseigner "${subject.name}" à cette classe.` });
-                return;
-            }
+        // --- Dragging a subject from the sidebar ---
+        if (active.id.toString().startsWith('subject-')) {
+            const subjectIdStr = active.id.toString().replace('subject-', '');
+            const subjectId = parseInt(subjectIdStr, 10);
+            if (isNaN(subjectId)) return;
             
-            const teacher = potentialTeachers[0]; // Pick the first available teacher
+            const subject = wizardData.subjects.find(s => s.id === subjectId);
+            if (!subject) return;
 
-            const newLesson: SchedulableLesson = {
-                name: `${subject.name} - ${wizardData.classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
-                day: day as Day,
-                startTime: new Date(2000, 0, 1, hour, minute).toISOString(),
-                endTime: new Date(2000, 0, 1, hour + 1, minute).toISOString(),
-                subjectId: subjectId,
-                classId: parseInt(selectedClassId, 10),
-                teacherId: teacher.id,
-                classroomId: null,
-            };
-            
-            dispatch(addLesson(newLesson));
-            toast({ title: "Cours ajouté", description: `"${subject.name}" a été ajouté à l'emploi du temps.` });
+            // Case 1: Drop on an existing lesson to update it
+            if (over.id.toString().startsWith('lesson-')) {
+                const lessonIdStr = over.id.toString().replace('lesson-', '');
+                const lessonId = parseInt(lessonIdStr, 10);
+                const lesson = scheduleData.find(l => l.id === lessonId);
+                const teacher = wizardData.teachers.find(t => t.id === lesson?.teacherId);
+
+                if (teacher && teacher.subjects.some((s: Subject) => s.id === subjectId)) {
+                    dispatch(updateLessonSubject({ lessonId, newSubjectId: subjectId }));
+                    toast({ title: "Cours mis à jour", description: `La matière a été modifiée avec succès.` });
+                } else {
+                     toast({ variant: "destructive", title: "Assignation impossible", description: `L'enseignant(e) n'enseigne pas cette matière.` });
+                }
+            }
+            // Case 2: Drop on an empty cell to create a new lesson
+            else if (over.id.toString().startsWith('empty-')) {
+                 if (viewMode === 'teacher') {
+                    toast({
+                        variant: "destructive",
+                        title: "Action non prise en charge",
+                        description: `Veuillez passer en vue "Par Classe" pour ajouter un nouveau cours.`
+                    });
+                    return;
+                }
+                if (!selectedClassId) return;
+
+                const [, day, time] = over.id.toString().split('-');
+                const [hour, minute] = time.split(':').map(Number);
+
+                const potentialTeachers = wizardData.teachers.filter(t => 
+                    t.subjects.some(s => s.id === subjectId) &&
+                    (t.classes.length === 0 || t.classes.some(c => c.id === parseInt(selectedClassId, 10)))
+                );
+
+                if (potentialTeachers.length === 0) {
+                    toast({ variant: "destructive", title: "Assignation impossible", description: `Aucun enseignant disponible pour enseigner "${subject.name}" à cette classe.` });
+                    return;
+                }
+                
+                const teacher = potentialTeachers[0]; // Pick the first available teacher
+
+                const newLesson: SchedulableLesson = {
+                    name: `${subject.name} - ${wizardData.classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
+                    day: day as Day,
+                    startTime: new Date(2000, 0, 1, hour, minute).toISOString(),
+                    endTime: new Date(2000, 0, 1, hour + 1, minute).toISOString(),
+                    subjectId: subjectId,
+                    classId: parseInt(selectedClassId, 10),
+                    teacherId: teacher.id,
+                    classroomId: null,
+                };
+                
+                dispatch(addLesson(newLesson));
+                toast({ title: "Cours ajouté", description: `"${subject.name}" a été ajouté à l'emploi du temps.` });
+            }
         }
     };
 

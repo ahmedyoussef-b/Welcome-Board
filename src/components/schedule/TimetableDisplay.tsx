@@ -8,11 +8,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Download, Printer, Trash2, Building } from 'lucide-react';
 import type { WizardData, Lesson, Subject } from '@/types';
 import { Day } from '@prisma/client';
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { selectSchedule, updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
 
@@ -164,11 +166,26 @@ const RoomSelectorPopover: React.FC<{
 };
 
 
-const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedule }: { lesson: Lesson; wizardData: WizardData; onDelete: (id: number) => void; isEditable: boolean; fullSchedule: Lesson[] }) => {
-    const { isOver, setNodeRef } = useDroppable({
+const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedule }: { lesson: Lesson; wizardData: WizardData; onDelete: (id: number) => void; isEditable: boolean; fullSchedule: Lesson[] }) => {
+    const { attributes, listeners, setNodeRef: setDraggableNodeRef, transform, isDragging } = useDraggable({
+        id: `lesson-${lesson.id}`,
+        data: { lesson },
+        disabled: !isEditable,
+    });
+    const { isOver, setNodeRef: setDroppableNodeRef } = useDroppable({
         id: `lesson-${lesson.id}`,
         data: { lesson }
     });
+
+    const setNodeRef = (node: HTMLElement | null) => {
+        setDraggableNodeRef(node);
+        setDroppableNodeRef(node);
+    };
+
+    const style = transform ? { 
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 10,
+    } : undefined;
 
     const getSubjectName = (id: number) => wizardData.subjects.find(s => s.id === id)?.name || 'N/A';
     const getTeacherName = (id: string) => {
@@ -185,7 +202,7 @@ const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     };
     
     return (
-        <div ref={setNodeRef} className={`p-2 rounded-md border text-xs h-full flex flex-col justify-center transition-colors relative group ${getSubjectColor(lesson.subjectId)} ${isOver ? 'ring-2 ring-primary' : ''}`}>
+        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(`p-2 rounded-md border text-xs h-full flex flex-col justify-center transition-colors relative group cursor-grab`, getSubjectColor(lesson.subjectId), isOver && 'ring-2 ring-primary', isDragging && 'opacity-50 shadow-lg')}>
              {isEditable && (
                 <>
                     <button
@@ -217,9 +234,6 @@ const DroppableEmptyCell = ({ day, timeSlot, disabled, wizardData, fullSchedule,
             ref={setNodeRef}
             className={`h-16 w-full rounded-md transition-colors relative group ${isOver ? 'bg-primary/20' : ''}`}
         >
-             {isEditable && !disabled && (
-                <RoomSelectorPopover lesson={null} day={day} timeSlot={timeSlot} wizardData={wizardData} fullSchedule={fullSchedule} />
-             )}
         </div>
     );
 };
@@ -323,7 +337,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                         
                         return (
                           <TableCell key={cellId} rowSpan={rowSpan} className="p-1 border align-top">
-                             <DroppableLesson lesson={lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
+                             <DraggableLesson lesson={lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
                           </TableCell>
                         );
                     } else {
