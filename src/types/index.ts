@@ -108,6 +108,7 @@ export interface TeacherConstraint {
 export interface SubjectRequirement {
     subjectId: number;
     requiredRoomId: number | 'any';
+    timePreference: 'ANY' | 'AM' | 'PM';
 }
 
 export interface SchoolData {

@@ -1,4 +1,3 @@
-
 // src/components/wizard/ConstraintsForm.tsx
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +14,7 @@ import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlic
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { selectAllSalles } from '@/lib/redux/features/classrooms/classroomsSlice';
 import { addTeacherConstraint, removeTeacherConstraint, selectTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
-import { setSubjectRequirement, selectSubjectRequirements } from '@/lib/redux/features/subjectRequirementsSlice';
+import { setSubjectRequirement, selectSubjectRequirements, setSubjectTimePreference } from '@/lib/redux/features/subjectRequirementsSlice';
 import type { TeacherConstraint, SubjectRequirement } from '@/types';
 import { Day } from '@prisma/client';
 
@@ -68,6 +67,10 @@ const ConstraintsForm: React.FC = () => {
   const handleSubjectRequirementChange = (subjectId: number, requiredRoomId: string) => {
     const roomId = requiredRoomId === 'any' ? 'any' : parseInt(requiredRoomId, 10);
     dispatch(setSubjectRequirement({ subjectId, requiredRoomId: roomId }));
+  };
+
+  const handleTimePreferenceChange = (subjectId: number, timePreference: 'ANY' | 'AM' | 'PM') => {
+    dispatch(setSubjectTimePreference({ subjectId, timePreference }));
   };
 
   return (
@@ -147,7 +150,7 @@ const ConstraintsForm: React.FC = () => {
         <Card className="shadow-inner">
           <CardHeader>
             <CardTitle>Exigences des Matières</CardTitle>
-            <CardDescription>Associez des matières à des salles spécifiques (ex: un laboratoire pour la chimie).</CardDescription>
+            <CardDescription>Associez des matières à des salles spécifiques ou à des préférences horaires (matin/après-midi).</CardDescription>
           </CardHeader>
           <CardContent>
             {subjects.length > 0 ? (
@@ -155,16 +158,33 @@ const ConstraintsForm: React.FC = () => {
                 {subjects.map((subject) => {
                   const requirement = subjectRequirements.find(r => r.subjectId === subject.id);
                   const selectedRoomId = requirement ? String(requirement.requiredRoomId) : 'any';
+                  const selectedTimePref = requirement ? requirement.timePreference : 'ANY';
                   return (
-                    <div key={subject.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50">
-                      <Label htmlFor={`subject-req-${subject.id}`} className="text-base font-medium flex-1">{subject.name}</Label>
-                      <Select value={selectedRoomId} onValueChange={(value) => handleSubjectRequirementChange(subject.id, value)}>
-                        <SelectTrigger className="w-full md:w-72" id={`subject-req-${subject.id}`}><SelectValue placeholder="Choisir une salle requise..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="any">N'importe quelle salle</SelectItem>
-                          {salles.map((salle) => <SelectItem key={salle.id} value={String(salle.id)}>{salle.name} (Bât. {salle.building}, {salle.capacity} pl.)</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                    <div key={subject.id} className="flex flex-col md:flex-row items-start md:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 gap-4">
+                      <Label htmlFor={`subject-req-${subject.id}`} className="text-base font-medium flex-1 pt-2">{subject.name}</Label>
+                      <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                        <div className="flex-1 min-w-[200px]">
+                          <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Building size={12} />Salle requise</Label>
+                          <Select value={selectedRoomId} onValueChange={(value) => handleSubjectRequirementChange(subject.id, value)}>
+                            <SelectTrigger className="mt-1" id={`subject-req-${subject.id}`}><SelectValue placeholder="Choisir une salle..." /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="any">N'importe quelle salle</SelectItem>
+                              {salles.map((salle) => <SelectItem key={salle.id} value={String(salle.id)}>{salle.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex-1 min-w-[150px]">
+                          <Label className="text-xs text-muted-foreground flex items-center gap-1.5"><Clock size={12} />Préférence horaire</Label>
+                          <Select value={selectedTimePref} onValueChange={(value: 'ANY' | 'AM' | 'PM') => handleTimePreferenceChange(subject.id, value)}>
+                            <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="ANY">Indifférent</SelectItem>
+                              <SelectItem value="AM">Matin</SelectItem>
+                              <SelectItem value="PM">Après-midi</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
