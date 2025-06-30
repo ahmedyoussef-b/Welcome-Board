@@ -1,14 +1,20 @@
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Printer, Trash2 } from 'lucide-react';
+import { Download, Printer, Trash2, Building } from 'lucide-react';
 import type { WizardData, Lesson, Subject } from '@/types';
 import { Day } from '@prisma/client';
 import { useDroppable } from '@dnd-kit/core';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
+import { selectSchedule, updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast } from '@/hooks/use-toast';
+
+const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
 
 // --- Helper Function to Merge Lessons ---
 const mergeConsecutiveLessons = (lessons: Lesson[], wizardData: WizardData): Lesson[] => {
@@ -67,10 +73,98 @@ const mergeConsecutiveLessons = (lessons: Lesson[], wizardData: WizardData): Les
     return finalMergedLessons;
 };
 
+const formatUtcTime = (dateString: string | Date): string => {
+    const date = new Date(dateString);
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    return `${hours}:00`;
+};
+
 
 // --- Internal Components ---
+const RoomSelectorPopover: React.FC<{
+  lesson: Lesson | null;
+  day: Day;
+  timeSlot: string;
+  wizardData: WizardData;
+  fullSchedule: Lesson[];
+}> = ({ lesson, day, timeSlot, wizardData, fullSchedule }) => {
+    const dispatch = useAppDispatch();
+    const [isOpen, setIsOpen] = useState(false);
 
-const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable }: { lesson: Lesson; wizardData: WizardData; onDelete: (id: number) => void; isEditable: boolean }) => {
+    const occupiedRoomIds = useMemo(() => {
+        const checkTime = new Date(`1970-01-01T${timeSlot}:00Z`).getTime();
+        
+        return fullSchedule
+            .filter(l => {
+                // Ignore the current lesson when checking for conflicts
+                if (lesson && l.id === lesson.id) return false;
+
+                const lessonStart = new Date(l.startTime);
+                const lessonStartTime = new Date(0);
+                lessonStartTime.setUTCHours(lessonStart.getUTCHours(), lessonStart.getUTCMinutes(), 0, 0);
+
+                return l.day === day &&
+                       lessonStartTime.getTime() === checkTime &&
+                       l.classroomId != null;
+            })
+            .map(l => l.classroomId) as number[];
+    }, [day, timeSlot, fullSchedule, lesson]);
+
+    const availableRooms = wizardData.rooms.filter(room => !occupiedRoomIds.includes(room.id));
+    
+    const handleRoomChange = (newRoomId: number | null) => {
+        if (!lesson) return;
+        dispatch(updateLessonRoom({ lessonId: lesson.id, classroomId: newRoomId }));
+        toast({ title: "Salle modifiée", description: `Le cours a été assigné à une nouvelle salle.` });
+        setIsOpen(false);
+    };
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                 <Button variant="ghost" size="icon" className="absolute top-1 right-1 p-0.5 h-6 w-6 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity" title="Changer de salle">
+                    <Building size={14} />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-60">
+                 <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Salles Disponibles</h4>
+                    <p className="text-sm text-muted-foreground">
+                        Créneau: {dayLabels[day]} {timeSlot}
+                    </p>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {availableRooms.length > 0 ? availableRooms.map(room => (
+                            <Button
+                                key={room.id}
+                                variant="outline"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => handleRoomChange(room.id)}
+                                disabled={!lesson}
+                            >
+                                {room.name}
+                            </Button>
+                        )) : <p className="text-sm text-muted-foreground p-2">Aucune salle libre.</p>}
+                        
+                        {lesson?.classroomId && (
+                             <Button
+                                variant="destructive"
+                                size="sm"
+                                className="w-full justify-start mt-2"
+                                onClick={() => handleRoomChange(null)}
+                            >
+                                Retirer la salle
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
+
+const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedule }: { lesson: Lesson; wizardData: WizardData; onDelete: (id: number) => void; isEditable: boolean; fullSchedule: Lesson[] }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: `lesson-${lesson.id}`,
         data: { lesson }
@@ -82,6 +176,7 @@ const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable }: { lesson:
         return teacher ? `${teacher.name.charAt(0)}. ${teacher.surname}` : 'N/A';
     };
     const getClassName = (id: number) => wizardData.classes.find(c => c.id === id)?.name || 'N/A';
+    const getRoomName = (id: number | null) => wizardData.rooms.find(r => r.id === id)?.abbreviation || wizardData.rooms.find(r => r.id === id)?.name || 'N/A';
 
     const subjectColors = ['bg-primary/10 border-primary/20', 'bg-secondary/10 border-secondary/20', 'bg-accent/10 border-accent/20', 'bg-chart-1/20 border-chart-1/30', 'bg-chart-2/20 border-chart-2/30', 'bg-chart-3/20 border-chart-3/30', 'bg-chart-4/20 border-chart-4/30', 'bg-chart-5/20 border-chart-5/30'];
     const getSubjectColor = (subjectId: number) => {
@@ -92,32 +187,39 @@ const DroppableLesson = ({ lesson, wizardData, onDelete, isEditable }: { lesson:
     return (
         <div ref={setNodeRef} className={`p-2 rounded-md border text-xs h-full flex flex-col justify-center transition-colors relative group ${getSubjectColor(lesson.subjectId)} ${isOver ? 'ring-2 ring-primary' : ''}`}>
              {isEditable && (
-                <button
-                    onClick={() => onDelete(lesson.id)}
-                    className="absolute top-0 right-0 p-0.5 bg-destructive/80 text-destructive-foreground rounded-bl-md opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Supprimer ce cours"
-                >
-                    <Trash2 className="h-3 w-3" />
-                </button>
+                <>
+                    <button
+                        onClick={() => onDelete(lesson.id)}
+                        className="absolute top-0 left-0 p-0.5 bg-destructive/80 text-destructive-foreground rounded-br-md opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Supprimer ce cours"
+                    >
+                        <Trash2 className="h-3 w-3" />
+                    </button>
+                    <RoomSelectorPopover lesson={lesson} day={lesson.day} timeSlot={formatUtcTime(lesson.startTime)} wizardData={wizardData} fullSchedule={fullSchedule} />
+                </>
             )}
             <div className="font-semibold text-foreground">{getSubjectName(lesson.subjectId)}</div>
             <div className="text-xs text-muted-foreground">{getTeacherName(lesson.teacherId)}</div>
             <div className="text-xs text-muted-foreground">Cl: {getClassName(lesson.classId)}</div>
+            <div className="text-xs text-muted-foreground">Salle: {getRoomName(lesson.classroomId)}</div>
         </div>
     );
 };
 
-const DroppableEmptyCell = ({ day, timeSlot, disabled }: { day: Day, timeSlot: string, disabled?: boolean }) => {
+const DroppableEmptyCell = ({ day, timeSlot, disabled, wizardData, fullSchedule, isEditable }: { day: Day, timeSlot: string, disabled?: boolean, wizardData: WizardData; fullSchedule: Lesson[], isEditable: boolean }) => {
     const { isOver, setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
         disabled,
     });
-
+    
     return (
         <div 
             ref={setNodeRef}
-            className={`h-16 w-full rounded-md transition-colors ${isOver ? 'bg-primary/20' : ''}`}
+            className={`h-16 w-full rounded-md transition-colors relative group ${isOver ? 'bg-primary/20' : ''}`}
         >
+             {isEditable && !disabled && (
+                <RoomSelectorPopover lesson={null} day={day} timeSlot={timeSlot} wizardData={wizardData} fullSchedule={fullSchedule} />
+             )}
         </div>
     );
 };
@@ -132,15 +234,10 @@ interface TimetableDisplayProps {
 }
 
 const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, scheduleData, isEditable = false, onDeleteLesson = () => {}, isDropDisabled = false }) => {
+  const fullSchedule = useAppSelector(selectSchedule);
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
-
-  const formatUtcTime = (dateString: string | Date): string => {
-    const date = new Date(dateString);
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    return `${hours}:00`;
-  };
 
   const scheduleGrid = useMemo(() => {
     const mergedLessons = mergeConsecutiveLessons(scheduleData, wizardData);
@@ -193,7 +290,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
               </TableRow>
             </TableHeader>
             <TableBody>
-              {timeSlots.map((time, timeIndex) => (
+              {timeSlots.map((time) => (
                 <TableRow key={time}>
                   <TableCell className="font-medium bg-muted/50 border">{time}</TableCell>
                   {schoolDays.map(day => {
@@ -226,17 +323,13 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                         
                         return (
                           <TableCell key={cellId} rowSpan={rowSpan} className="p-1 border align-top">
-                             <DroppableLesson lesson={lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} />
+                             <DroppableLesson lesson={lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
                           </TableCell>
                         );
                     } else {
                         return (
                             <TableCell key={cellId} className="p-1 border align-top">
-                                {isEditable ? (
-                                    <DroppableEmptyCell day={dayEnum} timeSlot={time} disabled={isDropDisabled} />
-                                ) : (
-                                    <div className="h-16 w-full"></div>
-                                )}
+                                <DroppableEmptyCell day={dayEnum} timeSlot={time} disabled={isDropDisabled} wizardData={wizardData} fullSchedule={fullSchedule} isEditable={isEditable} />
                             </TableCell>
                         );
                     }

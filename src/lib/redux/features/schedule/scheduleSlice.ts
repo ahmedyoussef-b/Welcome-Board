@@ -76,6 +76,12 @@ export const scheduleSlice = createSlice({
         lesson.name = lesson.name.replace(/^[^ -]+/, 'Updated');
       }
     },
+    updateLessonRoom(state, action: PayloadAction<{ lessonId: number; classroomId: number | null }>) {
+      const lesson = state.items.find(l => l.id === action.payload.lessonId);
+      if (lesson) {
+        lesson.classroomId = action.payload.classroomId;
+      }
+    },
     addLesson(state, action: PayloadAction<SchedulableLesson>) {
       const tempId = -Date.now();
       const newLesson = { 
@@ -113,6 +119,6 @@ export const scheduleSlice = createSlice({
   }
 });
 
-export const { setInitialSchedule, updateLessonSlot, updateLessonSubject, addLesson, removeLesson } = scheduleSlice.actions;
+export const { setInitialSchedule, updateLessonSlot, updateLessonSubject, updateLessonRoom, addLesson, removeLesson } = scheduleSlice.actions;
 export const { selectSchedule, selectScheduleStatus } = scheduleSlice.selectors;
 export default scheduleSlice.reducer;
