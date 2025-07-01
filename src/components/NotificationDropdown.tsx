@@ -3,7 +3,7 @@
 
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { markAsRead, removeNotification, markAllAsRead, type Notification } from '@/lib/redux/slices/notificationSlice';
-import { DropdownMenuContent, DropdownMenuHeader, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Bell, Check, Trash2, CheckCheck } from 'lucide-react';
@@ -28,7 +28,7 @@ export default function NotificationDropdown() {
 
   return (
     <DropdownMenuContent align="end" className="w-80 md:w-96">
-      <DropdownMenuHeader className="flex items-center justify-between">
+      <div className="flex items-center justify-between p-2">
         <DropdownMenuLabel>Notifications ({unreadCount})</DropdownMenuLabel>
         {unreadCount > 0 && (
             <Button variant="ghost" size="sm" className="text-xs flex items-center gap-1" onClick={handleMarkAll}>
@@ -36,7 +36,7 @@ export default function NotificationDropdown() {
                 Tout marquer comme lu
             </Button>
         )}
-      </DropdownMenuHeader>
+      </div>
       <DropdownMenuSeparator />
       <ScrollArea className="h-[300px]">
         {notifications.length === 0 ? (
