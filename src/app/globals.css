@@ -89,8 +89,7 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
-    /* Tailwind will apply font-inter or font-cairo via className in HtmlAttributesUpdater */
+    @apply bg-background text-foreground font-body;
   }
 }
 

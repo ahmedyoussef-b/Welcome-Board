@@ -1,6 +1,21 @@
 // src/app/layout.tsx
 import type { Metadata } from 'next';
+import { Inter, Literata } from 'next/font/google';
 import './globals.css'; // Global styles
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
+
+const literata = Literata({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-literata',
+  style: ['normal', 'italic'],
+  weight: ['400', '500', '600', '700'],
+});
 
 export const metadata: Metadata = {
   title: 'RoleAuthFlow App',
@@ -13,14 +28,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" dir="ltr" suppressHydrationWarning> 
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-        <link href="https://fonts.googleapis.com/css2?family=Literata:ital,opsz,wght@0,7..72,400..700;1,7..72,400..700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-inter">
+    <html lang="fr" dir="ltr" className={`${inter.variable} ${literata.variable}`} suppressHydrationWarning> 
+      <head />
+      <body>
         {children}
       </body>
     </html>
