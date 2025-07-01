@@ -18,7 +18,6 @@ const RoleCard: React.FC<RoleCardProps> = ({ title, description, icon: Icon, cla
             <div className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white p-6 text-center [backface-visibility:hidden]">
                 <Icon className="w-16 h-16 text-primary mb-4" />
                 <h3 className="text-2xl font-bold">{title}</h3>
-                <p className="text-sm text-neutral-200 mt-2">Passez la souris pour en savoir plus</p>
             </div>
             {/* Back */}
             <div className="absolute inset-0 h-full w-full rounded-xl bg-primary text-primary-foreground p-6 text-center [transform:rotateY(180deg)] [backface-visibility:hidden]">
