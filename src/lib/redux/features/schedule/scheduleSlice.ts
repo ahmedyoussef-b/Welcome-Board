@@ -59,7 +59,8 @@ export const scheduleSlice = createSlice({
 
             const [hour, minute] = newTime.split(':').map(Number);
             
-            const newStartDate = new Date(2000, 0, 1, hour, minute, 0);
+            // Create the date in UTC to avoid timezone shifts
+            const newStartDate = new Date(Date.UTC(2000, 0, 1, hour, minute, 0));
             const newEndDate = new Date(newStartDate.getTime() + durationMs);
 
             lesson.day = newDay;
