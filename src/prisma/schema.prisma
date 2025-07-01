@@ -1,13 +1,259 @@
-// prisma/schema.prisma
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider     = "postgresql"
+  url          = env("DATABASE_URL")
+  relationMode = "prisma"
 }
 
 generator client {
   provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String    @unique
+  name          String?
+  password      String
+  role          Role      @default(VISITOR)
+  active        Boolean   @default(true)
+  img           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  admin         Admin?
+  teacher       Teacher?
+  student       Student?
+  parent        Parent?
+
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+}
+
+model Admin {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  surname   String
+  phone     String?
+  address   String?
+  img       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Teacher {
+  id        String    @id @default(cuid())
+  userId    String    @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  surname   String
+  phone     String?
+  address   String?
+  img       String?
+  bloodType String?
+  birthday  DateTime?
+  sex       UserSex?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  subjects Subject[] @relation("TeacherSubjects")
+  classes  Class[]   @relation("ClassSupervisor")
+  lessons  Lesson[]
+}
+
+model Student {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  surname   String
+  phone     String?
+  address   String
+  img       String?
+  bloodType String
+  birthday  DateTime
+  sex       UserSex
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  gradeId  Int
+  grade    Grade  @relation(fields: [gradeId], references: [id])
+  classId  Int?
+  class    Class? @relation(fields: [classId], references: [id])
+  parentId String?
+  parent   Parent?  @relation(fields: [parentId], references: [id])
+
+  attendances Attendance[]
+  results     Result[]
+}
+
+model Parent {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  surname   String
+  phone     String?
+  address   String
+  img       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  students Student[]
+}
+
+model Grade {
+  id      Int     @id @default(autoincrement())
+  level   Int     @unique
+  classes Class[]
+  students Student[]
+}
+
+model Class {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  abbreviation       String?
+  capacity           Int
+  gradeId            Int
+  grade              Grade               @relation(fields: [gradeId], references: [id])
+  supervisorId       String?
+  supervisor         Teacher?            @relation("ClassSupervisor", fields: [supervisorId], references: [id], onDelete: SetNull)
+  students           Student[]
+  lessons            Lesson[]
+  events             Event[]
+  announcements      Announcement[]
+  lessonRequirements LessonRequirement[]
+}
+
+model Subject {
+  id                 Int                 @id @default(autoincrement())
+  name               String              @unique
+  weeklyHours        Int
+  coefficient        Int?
+  teachers           Teacher[]           @relation("TeacherSubjects")
+  lessons            Lesson[]
+  lessonRequirements LessonRequirement[]
+}
+
+model Classroom {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  abbreviation String?
+  capacity     Int
+  building     String?
+  lessons      Lesson[]
+}
+
+model Lesson {
+  id          Int      @id @default(autoincrement())
+  name        String
+  day         Day
+  startTime   DateTime @db.Time(6)
+  endTime     DateTime @db.Time(6)
+  subjectId   Int
+  subject     Subject  @relation(fields: [subjectId], references: [id])
+  classId     Int
+  class       Class    @relation(fields: [classId], references: [id])
+  teacherId   String
+  teacher     Teacher  @relation(fields: [teacherId], references: [id])
+  classroomId Int?
+  classroom   Classroom? @relation(fields: [classroomId], references: [id], onDelete: SetNull)
+
+  exams       Exam[]
+  assignments Assignment[]
+  attendances Attendance[]
+}
+
+model LessonRequirement {
+  id        Int     @id @default(autoincrement())
+  classId   Int
+  subjectId Int
+  hours     Int
+  class     Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, subjectId])
+}
+
+model Exam {
+  id        Int      @id @default(autoincrement())
+  title     String
+  startTime DateTime
+  endTime   DateTime
+  lessonId  Int
+  lesson    Lesson   @relation(fields: [lessonId], references: [id])
+  results   Result[]
+}
+
+model Assignment {
+  id        Int      @id @default(autoincrement())
+  title     String
+  startDate DateTime
+  dueDate   DateTime
+  lessonId  Int
+  lesson    Lesson   @relation(fields: [lessonId], references: [id])
+  results   Result[]
+}
+
+model Result {
+  id           Int         @id @default(autoincrement())
+  score        Float
+  studentId    String
+  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  examId       Int?
+  exam         Exam?       @relation(fields: [examId], references: [id], onDelete: Cascade)
+  assignmentId Int?
+  assignment   Assignment? @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @db.Date
+  present   Boolean
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lessonId  Int
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, lessonId, date])
+}
+
+model Event {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  startTime   DateTime
+  endTime     DateTime
+  classId     Int?
+  class       Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model Announcement {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  date        DateTime @db.Date
+  classId     Int?
+  class       Class?   @relation(fields: [classId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
 }
 
 enum Role {
@@ -31,265 +277,4 @@ enum Day {
   FRIDAY
   SATURDAY
   SUNDAY
-}
-
-model User {
-  id            String         @id @default(cuid())
-  username      String         @unique
-  email         String         @unique
-  password      String
-  role          Role           @default(VISITOR)
-  name          String?
-  img           String?
-  active        Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @default(now()) @updatedAt
-  admin         Admin?
-  teacher       Teacher?
-  student       Student?
-  parent        Parent?
-  sessions      Session[]
-  refreshTokens RefreshToken[]
-}
-
-model Admin {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  name      String
-  surname   String
-  phone     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model Teacher {
-  id        String    @id @default(cuid())
-  userId    String    @unique
-  name      String
-  surname   String
-  phone     String?
-  address   String?
-  img       String?
-  bloodType String?
-  birthday  DateTime?
-  sex       UserSex?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subjects  Subject[]
-  classes   Class[]   @relation("ClassSupervisors")
-  lessons   Lesson[]
-}
-
-model Student {
-  id          String       @id @default(cuid())
-  userId      String       @unique
-  name        String
-  surname     String
-  phone       String?
-  address     String?
-  img         String?
-  bloodType   String?
-  birthday    DateTime?
-  sex         UserSex?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @default(now()) @updatedAt
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  gradeId     Int?
-  grade       Grade?       @relation(fields: [gradeId], references: [id])
-  classId     Int?
-  class       Class?       @relation(fields: [classId], references: [id])
-  parentId    String?
-  parent      Parent?      @relation(fields: [parentId], references: [id])
-  attendances Attendance[]
-  results     Result[]
-}
-
-model Parent {
-  id        String    @id @default(cuid())
-  userId    String    @unique
-  name      String
-  surname   String
-  phone     String?
-  address   String?
-  img       String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  students  Student[]
-}
-
-model Class {
-  id             Int            @id @default(autoincrement())
-  name           String         @unique
-  capacity       Int
-  abbreviation   String?
-  gradeId        Int
-  supervisorId   String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @default(now()) @updatedAt
-  grade          Grade          @relation(fields: [gradeId], references: [id])
-  supervisor     Teacher?       @relation("ClassSupervisors", fields: [supervisorId], references: [id])
-  students       Student[]
-  lessons        Lesson[]
-  events         Event[]
-  announcements  Announcement[]
-}
-
-model Grade {
-  id        Int       @id @default(autoincrement())
-  level     Int       @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
-  classes   Class[]
-  students  Student[]
-}
-
-model Subject {
-  id            Int       @id @default(autoincrement())
-  name          String    @unique
-  weeklyHours   Int
-  coefficient   Int?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
-  teachers      Teacher[]
-  lessons       Lesson[]
-}
-
-model Classroom {
-  id           Int      @id @default(autoincrement())
-  name         String   @unique
-  capacity     Int
-  building     String?
-  abbreviation String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
-  lessons      Lesson[]
-}
-
-model Lesson {
-  id           Int          @id @default(autoincrement())
-  name         String
-  day          Day
-  startTime    DateTime
-  endTime      DateTime
-  subjectId    Int
-  classId      Int
-  teacherId    String
-  classroomId  Int?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @default(now()) @updatedAt
-  subject      Subject      @relation(fields: [subjectId], references: [id])
-  class        Class        @relation(fields: [classId], references: [id])
-  teacher      Teacher      @relation(fields: [teacherId], references: [id])
-  classroom    Classroom?   @relation(fields: [classroomId], references: [id])
-  exams        Exam[]
-  assignments  Assignment[]
-  attendances  Attendance[]
-}
-
-model Exam {
-  id        Int      @id @default(autoincrement())
-  title     String
-  startTime DateTime
-  endTime   DateTime
-  lessonId  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  results   Result[]
-}
-
-model Assignment {
-  id        Int      @id @default(autoincrement())
-  title     String
-  startDate DateTime
-  dueDate   DateTime
-  lessonId  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  results   Result[]
-}
-
-model Result {
-  id           Int         @id @default(autoincrement())
-  score        Float
-  studentId    String
-  examId       Int?
-  assignmentId Int?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @default(now()) @updatedAt
-  student      Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  exam         Exam?       @relation(fields: [examId], references: [id])
-  assignment   Assignment? @relation(fields: [assignmentId], references: [id])
-}
-
-model Attendance {
-  id        Int      @id @default(autoincrement())
-  date      DateTime
-  present   Boolean
-  studentId String
-  lessonId  Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-}
-
-model Event {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  startTime   DateTime
-  endTime     DateTime
-  classId     Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-  class       Class?   @relation(fields: [classId], references: [id])
-}
-
-model Announcement {
-  id          Int      @id @default(autoincrement())
-  title       String
-  description String?
-  date        DateTime
-  classId     Int?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-  class       Class?   @relation(fields: [classId], references: [id])
-}
-
-model Session {
-  id        String   @id @default(cuid())
-  userId    String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model RefreshToken {
-  id          String   @id @default(cuid())
-  token       String   @unique
-  userId      String
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model LessonRequirement {
-  id          Int @id @default(autoincrement())
-  classId     Int
-  subjectId   Int
-  hours       Int
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @default(now()) @updatedAt
-
-  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
-
-  @@unique([classId, subjectId])
 }
