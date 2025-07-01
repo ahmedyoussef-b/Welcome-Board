@@ -183,7 +183,7 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
               <AccordionItem value={cls.id.toString()} key={cls.id}>
                 <AccordionTrigger>
                   <div className="flex items-center gap-2">
-                    {cls.id === firstClassId && <Star className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />}
+                    {cls.id === firstClassId && <Star className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" title="Classe modèle pour les valeurs par défaut" />}
                     <span>{cls.name}</span>
                   </div>
                 </AccordionTrigger>
@@ -213,6 +213,7 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
                                   min="0"
                                   value={requirement ?? ''}
                                   onChange={(e) => handleHoursChange(cls.id, subject.id, parseInt(e.target.value) || 0)}
+                                  title={isDefaulted && firstClassId ? `Valeur par défaut de la classe ${classes.find(c=>c.id === firstClassId)?.name}` : ''}
                                 />
                               </TableCell>
                               <TableCell className="text-right">
