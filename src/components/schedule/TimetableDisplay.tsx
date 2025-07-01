@@ -262,14 +262,14 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
   const { scheduleGrid, spannedSlots } = useMemo(() => {
     const mergedLessons = mergeConsecutiveLessons(scheduleData, wizardData);
     const grid: { [key: string]: { lesson: Lesson, rowSpan: number } } = {};
-    const spanned = new Set<string>();
+    const localSpannedSlots = new Set<string>();
 
     mergedLessons.forEach((lesson) => {
       const day = lesson.day;
       const time = formatUtcTime(lesson.startTime);
       const cellId = `${day}-${time}`;
 
-      if (spanned.has(cellId)) return;
+      if (localSpannedSlots.has(cellId)) return;
 
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
@@ -283,12 +283,12 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
           const nextTimeSlotIndex = timeSlots.indexOf(time) + i;
           if (nextTimeSlotIndex < timeSlots.length) {
             const nextTimeSlot = timeSlots[nextTimeSlotIndex];
-            spanned.add(`${day}-${nextTimeSlot}`);
+            localSpannedSlots.add(`${day}-${nextTimeSlot}`);
           }
         }
       }
     });
-    return { scheduleGrid: grid, spannedSlots: spanned };
+    return { scheduleGrid: grid, spannedSlots: localSpannedSlots };
   }, [scheduleData, wizardData, timeSlots]);
   
   const exportToPDF = () => { window.print(); };
