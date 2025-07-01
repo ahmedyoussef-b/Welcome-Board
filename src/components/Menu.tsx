@@ -1,4 +1,3 @@
-
 // src/components/Menu.tsx
 import Image from "next/image";
 import Link from "next/link";
@@ -107,6 +106,12 @@ const menuItems: Array<{
         label: "Chatroom",
         href: "/list/chatroom",
         visible: [Role.ADMIN, Role.TEACHER, Role.STUDENT]
+      },
+       {
+        icon: "/mail.png",
+        label: "Messages",
+        href: "/list/messages",
+        visible: [Role.ADMIN, Role.TEACHER, Role.PARENT]
       },
       {
         icon: "/announcement.png",

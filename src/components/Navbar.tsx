@@ -1,17 +1,20 @@
 // src/components/Navbar.tsx
 "use client"; 
 import Image from "next/image";
+import Link from 'next/link';
 import { AppHeaderLogoutButton } from "./layout/AppHeaderLogoutButton";
 import { ThemeToggleButton } from "./layout/ThemeToggleButton";
-// LanguageSwitcher n'est plus utilisé
+import { DropdownMenu, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import NotificationDropdown from './NotificationDropdown';
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "@/lib/redux/slices/authSlice";
+import { selectUnreadCount } from '@/lib/redux/slices/notificationSlice';
 import type { SafeUser } from "@/types";
 import { useEffect, useState } from "react";
 
 const Navbar = () => {
-  // t et useCurrentLocale ne sont plus nécessaires
   const currentUser: SafeUser | null = useSelector(selectCurrentUser);
+  const unreadNotifications = useSelector(selectUnreadCount);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -24,6 +27,7 @@ const Navbar = () => {
         <div className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 px-2 h-10 w-64 bg-muted">
         </div>
         <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
+          <div className="bg-muted rounded-full w-8 h-8"></div>
           <div className="bg-muted rounded-full w-8 h-8"></div>
           <div className="bg-muted rounded-full w-8 h-8"></div>
           <div className="flex flex-col text-right">
@@ -51,16 +55,25 @@ const Navbar = () => {
       {/* ICONS AND USER */}
       <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
         <ThemeToggleButton />
-        {/* LanguageSwitcher retiré */}
-        <div className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer">
-          <Image src="/message.png" alt="messages" width={18} height={18} /> {/* Texte français direct */}
-        </div>
-        <div className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer relative">
-          <Image src="/announcement.png" alt="annonces" width={18} height={18} /> {/* Texte français direct */}
-          <div className="absolute -top-2 -right-2 w-4 h-4 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px]">
-            1
-          </div>
-        </div>
+        
+        <Link href="/fr/list/messages" className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer">
+            <Image src="/mail.png" alt="messages" width={18} height={18} />
+        </Link>
+        
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer relative">
+                    <Image src="/announcement.png" alt="annonces" width={18} height={18} />
+                    {unreadNotifications > 0 && (
+                        <div className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px] animate-pulse">
+                            {unreadNotifications}
+                        </div>
+                    )}
+                </button>
+            </DropdownMenuTrigger>
+            <NotificationDropdown />
+        </DropdownMenu>
+
         {currentUser ? (
           <>
             <div className="flex flex-col text-right">
@@ -79,7 +92,7 @@ const Navbar = () => {
             <AppHeaderLogoutButton /> 
           </>
         ) : (
-          <span className="text-xs text-muted-foreground">Non connecté</span> /* Texte français direct */
+          <span className="text-xs text-muted-foreground">Non connecté</span>
         )}
       </div>
     </div>
