@@ -50,49 +50,49 @@ export const scheduleSlice = createSlice({
     },
     updateLessonSlot(state, action: PayloadAction<{ lessonId: number; newDay: Day; newTime: string }>) {
         const { lessonId, newDay, newTime } = action.payload;
-        const lesson = state.items.find(l => l.id === lessonId);
+        state.items = state.items.map(lesson => {
+            if (lesson.id === lessonId) {
+                const start = new Date(lesson.startTime);
+                const end = new Date(lesson.endTime);
+                const durationMs = end.getTime() - start.getTime();
+                const [hour, minute] = newTime.split(':').map(Number);
+                const newStartDate = new Date(Date.UTC(2000, 0, 1, hour, minute, 0));
+                const newEndDate = new Date(newStartDate.getTime() + durationMs);
 
-        if (lesson) {
-            const start = new Date(lesson.startTime);
-            const end = new Date(lesson.endTime);
-            const durationMs = end.getTime() - start.getTime();
-
-            const [hour, minute] = newTime.split(':').map(Number);
-            
-            // Create the date in UTC to avoid timezone shifts
-            const newStartDate = new Date(Date.UTC(2000, 0, 1, hour, minute, 0));
-            const newEndDate = new Date(newStartDate.getTime() + durationMs);
-
-            lesson.day = newDay;
-            lesson.startTime = newStartDate.toISOString();
-            lesson.endTime = newEndDate.toISOString();
-        }
+                return {
+                    ...lesson,
+                    day: newDay,
+                    startTime: newStartDate.toISOString(),
+                    endTime: newEndDate.toISOString(),
+                };
+            }
+            return lesson;
+        });
     },
     updateLessonSubject(state, action: PayloadAction<{ lessonId: number; newSubjectId: number }>) {
       const { lessonId, newSubjectId } = action.payload;
-      const lesson = state.items.find(l => l.id === lessonId);
-      if (lesson) {
-        lesson.subjectId = newSubjectId;
-        // The name update is optional but good for consistency if displayed directly
-        lesson.name = lesson.name.replace(/^[^ -]+/, 'Updated');
-      }
+      state.items = state.items.map(lesson =>
+        lesson.id === lessonId
+          ? { ...lesson, subjectId: newSubjectId }
+          : lesson
+      );
     },
     updateLessonRoom(state, action: PayloadAction<{ lessonId: number; classroomId: number | null }>) {
-      const lesson = state.items.find(l => l.id === action.payload.lessonId);
-      if (lesson) {
-        lesson.classroomId = action.payload.classroomId;
-      }
+      const { lessonId, classroomId } = action.payload;
+      state.items = state.items.map(lesson =>
+        lesson.id === lessonId
+          ? { ...lesson, classroomId: classroomId }
+          : lesson
+      );
     },
     addLesson(state, action: PayloadAction<SchedulableLesson>) {
       const tempId = -Date.now();
       const newLesson = { 
         ...action.payload, 
         id: tempId, 
-        createdAt: new Date().toISOString(), // Use serializable string
-        updatedAt: new Date().toISOString()  // Use serializable string
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
       };
-      // Cast to Lesson type is necessary because the Prisma type expects Date objects,
-      // but the application state uses strings for dates to ensure serializability.
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
