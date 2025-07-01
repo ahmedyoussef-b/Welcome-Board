@@ -4,10 +4,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { KeyRound, Shield, User, GraduationCap, Users, GalleryHorizontal } from 'lucide-react';
+import { Shield, User, GraduationCap, Users, GalleryHorizontal } from 'lucide-react';
 import RoleCard from './RoleCard';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectCurrentUser } from '@/lib/redux/slices/authSlice';
+import Image from 'next/image';
 
 const roles = [
   {
@@ -52,8 +53,15 @@ export default function LandingPage() {
             
             <main className="relative z-10 flex flex-1 flex-col items-center justify-center text-center text-white">
                 <div className="mb-12">
-                    <div className="inline-block p-4 bg-primary/10 rounded-full mb-4">
-                        <KeyRound className="w-12 h-12 text-primary" />
+                    <div className="inline-block mb-4">
+                        <Image 
+                            src="/logo.png" 
+                            alt="Logo College Riadh 5" 
+                            width={80} 
+                            height={80} 
+                            priority
+                            data-ai-hint="school logo"
+                        />
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold font-headline text-white">
                         Bienvenue à <span className="text-primary">College Riadh 5</span>
@@ -61,7 +69,6 @@ export default function LandingPage() {
                 </div>
 
                 <div className="mb-16 w-full h-80">
-                    <h2 className="text-3xl font-bold text-white mb-8">Découvrez les rôles</h2>
                     <div className="scene">
                         <div className="carousel">
                             {roles.map((role, index) => (
