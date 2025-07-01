@@ -47,17 +47,17 @@ const AnnouncementListPage = async ({
       
       if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
         if (fileInfo.files.length > 1) {
-          // Gallery view
+          // Gallery view - Vertical Scroll
           content = (
-            <div className="flex overflow-x-auto space-x-2 py-2 max-w-lg">
+            <div className="h-96 max-w-lg overflow-y-auto space-y-2 p-1 pr-2 rounded-lg border bg-background/50">
                 {fileInfo.files.map((file: any, index: number) => (
-                    <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block flex-shrink-0 w-24 h-24 relative rounded-md overflow-hidden group bg-muted/50">
+                    <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative aspect-[4/3] rounded-md overflow-hidden group bg-muted/50">
                         <Image
                             src={file.url}
                             alt={`${item.title} - image ${index + 1}`}
                             fill
-                            sizes="96px"
-                            style={{ objectFit: 'cover' }}
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
+                            style={{ objectFit: 'contain' }}
                             className="group-hover:opacity-80 transition-opacity"
                         />
                     </Link>
