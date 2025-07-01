@@ -117,13 +117,15 @@ const Navbar = () => {
                 {currentUser.role.toLowerCase()}
               </span>
             </div>
-             <Image
-                src={currentUser.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
-                alt="Photo de profil"
-                width={40}
-                height={40}
-                className="rounded-full"
-              />
+             <div className="relative h-10 w-10">
+                <Image
+                    src={currentUser.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
+                    alt="Photo de profil"
+                    fill
+                    sizes="40px"
+                    className="rounded-full object-cover"
+                />
+            </div>
             <AppHeaderLogoutButton /> 
           </>
         ) : (
