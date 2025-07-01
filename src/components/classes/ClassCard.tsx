@@ -2,6 +2,8 @@
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Users, ArrowRight } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import type { Teacher } from '@/types/index';
 
 type ClassWithDetails = {
@@ -18,27 +20,42 @@ interface ClassCardProps {
 }
 
 const ClassCard: React.FC<ClassCardProps> = ({ classItem, locale }) => {
+    const studentPercentage = classItem.capacity > 0 ? (classItem._count.students / classItem.capacity) * 100 : 0;
+
     return (
-        <Link href={`/${locale}/list/classes/${classItem.id}`} passHref>
-            <Card className="hover:shadow-lg transition-shadow duration-200 cursor-pointer h-full flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-primary">{classItem.name}</CardTitle>
+        <Card className="hover:shadow-xl transition-all duration-300 bg-card hover:-translate-y-1 group flex flex-col justify-between">
+            <Link href={`/${locale}/list/classes/${classItem.id}`} passHref className="flex flex-col flex-grow p-4">
+                <CardHeader className="p-0 mb-4">
+                     <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg text-primary font-bold">
+                            {classItem.name}
+                        </CardTitle>
+                         <div className="p-2 bg-primary/10 rounded-lg">
+                             <Users className="h-5 w-5 text-primary" />
+                        </div>
+                    </div>
                     {classItem.supervisor && (
-                        <CardDescription className="text-xs">
+                        <CardDescription className="text-xs pt-1">
                             Superviseur: {classItem.supervisor.name} {classItem.supervisor.surname}
                         </CardDescription>
                     )}
                 </CardHeader>
-                <CardContent className="flex-grow">
-                    <p className="text-sm text-muted-foreground">
-                        Étudiants: {classItem._count.students} / {classItem.capacity}
-                    </p>
+                <CardContent className="p-0 flex-grow">
+                     <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                            <span className="text-sm font-medium text-foreground">Effectif</span>
+                            <span className="text-lg font-bold text-foreground">{classItem._count.students} / {classItem.capacity}</span>
+                        </div>
+                        <Progress value={studentPercentage} className="h-2" />
+                    </div>
                 </CardContent>
-                <CardFooter>
-                    <Button variant="link" className="p-0 h-auto text-sm">Voir Détails</Button>
+                <CardFooter className="p-0 mt-4">
+                     <Button variant="link" className="p-0 h-auto text-sm text-primary group-hover:underline">
+                        Voir les Détails <ArrowRight className="ml-1 h-4 w-4" />
+                     </Button>
                 </CardFooter>
-            </Card>
-        </Link>
+            </Link>
+        </Card>
     );
 };
 

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Button } from '@/components/ui/button';
 import FormContainer from '@/components/FormContainer';
 import { Role as AppRole, type Grade } from "@/types/index";
+import { Layers3, ArrowRight } from 'lucide-react';
 
 type GradeWithClassCount = Grade & {
   _count: { classes: number };
@@ -17,21 +18,29 @@ interface GradeCardProps {
 
 const GradeCard: React.FC<GradeCardProps> = ({ grade, locale, userRole }) => {
     return (
-        <Card className="hover:shadow-xl transition-shadow duration-300 bg-card hover:bg-muted/30 h-full flex flex-col relative group">
-            <Link href={`/${locale}/list/classes?viewGradeId=${grade.id}`} passHref className="flex flex-col flex-grow">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-xl text-primary">
-                        {`Niveau ${grade.level}`}
-                    </CardTitle>
+        <Card className="hover:shadow-xl transition-all duration-300 bg-card hover:-translate-y-1 group flex flex-col justify-between">
+            <Link href={`/${locale}/list/classes?viewGradeId=${grade.id}`} passHref className="flex flex-col flex-grow p-4">
+                <CardHeader className="p-0">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-xl text-primary font-bold">
+                            {`Niveau ${grade.level}`}
+                        </CardTitle>
+                        <div className="p-2 bg-primary/10 rounded-lg">
+                             <Layers3 className="h-6 w-6 text-primary" />
+                        </div>
+                    </div>
                 </CardHeader>
-                <CardContent className="flex-grow">
-                    <p className="text-muted-foreground">
-                        {`${grade._count.classes} Classe(s)`}
-                    </p>
+                <CardContent className="flex-grow flex items-center justify-center py-6">
+                    <div className="text-center">
+                        <p className="text-5xl font-extrabold text-foreground">{grade._count.classes}</p>
+                        <p className="text-muted-foreground mt-1">
+                            {`Classe${grade._count.classes > 1 ? 's' : ''} configurée${grade._count.classes > 1 ? 's' : ''}`}
+                        </p>
+                    </div>
                 </CardContent>
-                <CardFooter>
-                    <Button variant="secondary" size="sm" className="w-full">
-                        Voir les Classes
+                <CardFooter className="p-0">
+                    <Button variant="secondary" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        Voir les Classes <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                 </CardFooter>
             </Link>

@@ -5,7 +5,7 @@ import { type Class, type Grade, type Teacher, Role as AppRole } from "@/types/i
 import Link from "next/link";
 import { getServerSession } from "@/lib/auth-utils";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Layers3 } from "lucide-react";
 import GradeCard from "@/components/classes/GradeCard";
 import ClassCard from "@/components/classes/ClassCard";
 
@@ -92,31 +92,32 @@ const ClassesPage = async ({
   }) as GradeWithClassCount[];
 
   return (
-    <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6 lg:p-8">
       <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-foreground">Niveaux Scolaires</h1> 
+        <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <Layers3 className="h-7 w-7 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Niveaux Scolaires</h1> 
+              <p className="text-muted-foreground text-sm">Organisez et gérez les niveaux et les classes de votre établissement.</p>
+            </div>
+        </div>
         {userRole === AppRole.ADMIN && (
           <FormContainer table="grade" type="create" />
         )}
       </div>
 
       {grades.length === 0 ? (
-         <div className="text-center py-10">
-            <p className="text-muted-foreground">Aucun niveau trouvé.</p> 
+         <div className="text-center py-16 bg-muted/50 rounded-lg">
+            <p className="text-lg text-muted-foreground">Aucun niveau trouvé.</p> 
             {userRole === AppRole.ADMIN && <p className="text-sm mt-2 text-muted-foreground">Pensez à ajouter le premier niveau pour commencer.</p>} 
           </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {grades.slice(0, 4).map((grade) => ( 
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {grades.map((grade) => ( 
             <GradeCard key={grade.id} grade={grade} locale={locale} userRole={userRole} />
           ))}
-        </div>
-      )}
-      {grades.length > 4 && (
-        <div className="mt-8 text-center">
-            <Button variant="outline" disabled>
-                Afficher Plus de Niveaux ({grades.length - 4} Plus) 
-            </Button>
         </div>
       )}
     </div>
