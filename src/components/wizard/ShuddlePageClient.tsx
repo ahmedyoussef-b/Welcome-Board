@@ -89,7 +89,7 @@ export default function ShuddlePageClient() {
   
     const handlePrevious = () => {
       if (currentStep > 0) {
-        setCurrentStep(currentStep + 1);
+        setCurrentStep(currentStep - 1);
       }
     };
   

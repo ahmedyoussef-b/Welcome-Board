@@ -1,3 +1,4 @@
+// src/lib/schedule-utils.ts
 import type { WizardData, Day, TeacherConstraint } from '@/types';
 import { type Lesson as PrismaLesson } from '@prisma/client';
 
@@ -25,6 +26,59 @@ export const findConflictingConstraint = (
         }
     }
     return null; // No conflicting constraints found
+};
+
+
+export const mergeConsecutiveLessons = (lessons: PrismaLesson[], wizardData: WizardData): PrismaLesson[] => {
+    if (!lessons || lessons.length === 0) return [];
+
+    const dayOrder: Day[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+    
+    // Efficiently group lessons by day
+    const lessonsByDay: { [key in Day]?: PrismaLesson[] } = {};
+    for (const lesson of lessons) {
+        if (!lessonsByDay[lesson.day]) {
+            lessonsByDay[lesson.day] = [];
+        }
+        lessonsByDay[lesson.day]!.push(lesson);
+    }
+    
+    const finalMergedLessons: PrismaLesson[] = [];
+    
+    // Process each day independently
+    for (const day of dayOrder) {
+        const dailyLessons = lessonsByDay[day];
+        if (!dailyLessons || dailyLessons.length === 0) continue;
+
+        // Sort a *copy* of the lessons for that day to avoid mutating the original data
+        const sortedDailyLessons = [...dailyLessons].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+        
+        const mergedDailyLessons: PrismaLesson[] = [];
+        let i = 0;
+        while (i < sortedDailyLessons.length) {
+            let currentLesson = { ...sortedDailyLessons[i] }; // Create a mutable copy
+            let j = i + 1;
+            
+            // Look for consecutive lessons with the same properties
+            while (
+                j < sortedDailyLessons.length &&
+                sortedDailyLessons[j].classId === currentLesson.classId &&
+                sortedDailyLessons[j].subjectId === currentLesson.subjectId &&
+                sortedDailyLessons[j].teacherId === currentLesson.teacherId &&
+                new Date(sortedDailyLessons[j].startTime).getTime() === new Date(currentLesson.endTime).getTime()
+            ) {
+                // Merge by extending the end time
+                currentLesson.endTime = sortedDailyLessons[j].endTime;
+                j++;
+            }
+            
+            mergedDailyLessons.push(currentLesson);
+            i = j; // Move to the next lesson that wasn't merged
+        }
+        finalMergedLessons.push(...mergedDailyLessons);
+    }
+    
+    return finalMergedLessons;
 };
 
 
