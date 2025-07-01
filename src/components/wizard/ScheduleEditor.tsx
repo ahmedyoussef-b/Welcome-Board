@@ -4,7 +4,7 @@
 import React, { useMemo, useState } from 'react';
 import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent, type DragStartEvent, type DragCancelEvent } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot, selectSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
+import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot, selectSchedule, extendLesson } from '@/lib/redux/features/schedule/scheduleSlice';
 import { toast } from '@/hooks/use-toast';
 import type { WizardData, Lesson, Subject, Day, TeacherWithDetails } from '@/types';
 import { ScheduleSidebar } from '../schedule/ScheduleSidebar';
@@ -147,7 +147,34 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 }
             }
             else if (over.id.toString().startsWith('empty-')) {
-                 if (viewMode === 'teacher') {
+                const [, day, time] = over.id.toString().split('-');
+                const [hour, minute] = time.split(':').map(Number);
+                const currentSlotStartTime = new Date(Date.UTC(2000, 0, 1, hour, minute));
+
+                // --- EXTEND LOGIC ---
+                if (viewMode === 'class' && selectedClassId) {
+                    const precedingLesson = schedule.find(l =>
+                        l.classId === parseInt(selectedClassId, 10) &&
+                        l.subjectId === subjectId &&
+                        l.day === (day as Day) &&
+                        new Date(l.endTime).getTime() === currentSlotStartTime.getTime()
+                    );
+    
+                    if (precedingLesson) {
+                        const teacherIsAvailable = !schedule.some(
+                            l => l.id !== precedingLesson.id && l.teacherId === precedingLesson.teacherId && l.day === (day as Day) && formatUtcTime(l.startTime) === time
+                        );
+    
+                        if (teacherIsAvailable) {
+                            dispatch(extendLesson({ lessonId: precedingLesson.id }));
+                            toast({ title: "Cours étendu", description: `Le cours de ${subject.name} a été étendu.` });
+                            return;
+                        }
+                    }
+                }
+                // --- END EXTEND LOGIC ---
+                
+                if (viewMode === 'teacher') {
                     toast({
                         variant: "destructive",
                         title: "Action non prise en charge",
@@ -157,16 +184,13 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 }
                 if (!selectedClassId) return;
 
-                const [, day, time] = over.id.toString().split('-');
-                const [hour, minute] = time.split(':').map(Number);
-                
                 let assignedRoomId: number | null = null;
                 const timeIndex = timeSlots.indexOf(time);
 
                 if (timeIndex > 0) {
                     const previousTime = timeSlots[timeIndex - 1];
                     const precedingLesson = schedule.find(l => 
-                        l.day === day && 
+                        l.day === (day as Day) && 
                         formatUtcTime(l.startTime) === previousTime &&
                         l.subjectId === subjectId &&
                         l.classId === parseInt(selectedClassId, 10)
@@ -174,7 +198,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
 
                     if (precedingLesson && precedingLesson.classroomId) {
                         const roomIsFree = !schedule.some(l => 
-                            l.day === day &&
+                            l.day === (day as Day) &&
                             formatUtcTime(l.startTime) === time &&
                             l.classroomId === precedingLesson.classroomId
                         );
@@ -186,7 +210,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 
                 if (assignedRoomId === null) {
                     const availableRoom = wizardData.rooms.find(r => 
-                        !schedule.some(l => l.day === day && formatUtcTime(l.startTime) === time && l.classroomId === r.id)
+                        !schedule.some(l => l.day === (day as Day) && formatUtcTime(l.startTime) === time && l.classroomId === r.id)
                     );
                     assignedRoomId = availableRoom ? availableRoom.id : null;
                 }

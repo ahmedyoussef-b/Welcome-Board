@@ -70,10 +70,9 @@ export const scheduleSlice = createSlice({
         });
     },
     updateLessonSubject(state, action: PayloadAction<{ lessonId: number; newSubjectId: number }>) {
-      const { lessonId, newSubjectId } = action.payload;
       state.items = state.items.map(lesson =>
-        lesson.id === lessonId
-          ? { ...lesson, subjectId: newSubjectId }
+        lesson.id === action.payload.lessonId
+          ? { ...lesson, subjectId: action.payload.newSubjectId }
           : lesson
       );
     },
@@ -98,6 +97,14 @@ export const scheduleSlice = createSlice({
     removeLesson(state, action: PayloadAction<number>) {
       state.items = state.items.filter(lesson => lesson.id !== action.payload);
     },
+    extendLesson(state, action: PayloadAction<{ lessonId: number }>) {
+      const lesson = state.items.find(l => l.id === action.payload.lessonId);
+      if (lesson) {
+        const endTime = new Date(lesson.endTime);
+        endTime.setUTCHours(endTime.getUTCHours() + 1); // Assumes 1-hour extension
+        lesson.endTime = endTime.toISOString();
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -120,6 +127,6 @@ export const scheduleSlice = createSlice({
   }
 });
 
-export const { setInitialSchedule, updateLessonSlot, updateLessonSubject, updateLessonRoom, addLesson, removeLesson } = scheduleSlice.actions;
+export const { setInitialSchedule, updateLessonSlot, updateLessonSubject, updateLessonRoom, addLesson, removeLesson, extendLesson } = scheduleSlice.actions;
 export const { selectSchedule, selectScheduleStatus } = scheduleSlice.selectors;
 export default scheduleSlice.reducer;
