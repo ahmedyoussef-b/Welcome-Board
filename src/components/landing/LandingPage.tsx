@@ -40,7 +40,7 @@ export default function LandingPage() {
     return (
         <div 
             className="relative flex flex-col items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat p-8"
-            style={{ backgroundImage: 'url(/riadh5.jpg)' }}
+            style={{ backgroundImage: "url('/images/riadh5.jpg')" }}
         >
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/60 z-0" />
@@ -82,7 +82,7 @@ export default function LandingPage() {
                           <Link href={`/${locale}/login`}>Commencer</Link>
                       </Button>
                   )}
-                  <p className="text-xs text-neutral-300">© {new Date().getFullYear()} SchooLama. Tous droits réservés.</p>
+                  <p className="text-xs text-neutral-300">© {new Date().getFullYear()} AHMED ABBES. Tous droits réservés.</p>
                 </div>
             </main>
         </div>
