@@ -256,7 +256,7 @@ interface TimetableDisplayProps {
 const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, scheduleData, isEditable = false, onDeleteLesson = () => {}, isDropDisabled = false, highlightedSlots = [], activeDragColor = null }) => {
   const fullSchedule = useAppSelector(selectSchedule);
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+  const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
 
   const { scheduleGrid, spannedSlots } = useMemo(() => {
@@ -289,7 +289,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
       }
     });
     return { scheduleGrid: grid, spannedSlots: spanned };
-  }, [scheduleData, wizardData]);
+  }, [scheduleData, wizardData, timeSlots]);
   
   const exportToPDF = () => { window.print(); };
 
