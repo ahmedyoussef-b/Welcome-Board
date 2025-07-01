@@ -22,27 +22,35 @@ const Navbar = () => {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
-  // Met à jour l'état de la recherche si le paramètre de l'URL change
+  // Synchronise l'état de la recherche avec les paramètres de l'URL (par exemple, pour la navigation arrière/avant)
   useEffect(() => {
     setSearchQuery(searchParams.get('search') || '');
   }, [searchParams]);
 
+  // Applique un délai (debounce) à la recherche pour mettre à jour l'URL après que l'utilisateur a cessé de taper
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      // Ne met pas à jour le routeur si la requête dans l'URL est déjà la même
+      if (searchQuery === (searchParams.get('search') || '')) {
+        return;
+      }
+      
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchQuery) {
+        params.set('search', searchQuery);
+      } else {
+        params.delete('search');
+      }
+      params.delete('page'); // Réinitialise la pagination lors d'une nouvelle recherche
+      router.push(`${pathname}?${params.toString()}`);
+    }, 500); // délai de 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery, pathname, searchParams, router]);
+
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const params = new URLSearchParams(searchParams.toString());
-    if (searchQuery) {
-      params.set('search', searchQuery);
-    } else {
-      params.delete('search');
-    }
-    // Réinitialise à la première page lors d'une nouvelle recherche
-    params.delete('page');
-    router.push(`${pathname}?${params.toString()}`);
-  };
 
   if (!mounted) {
     return (
@@ -67,13 +75,10 @@ const Navbar = () => {
   return (
     <div className="flex items-center justify-between p-4">
       {/* SEARCH BAR */}
-       <form
-        onSubmit={handleSearch}
+       <div
         className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-border px-2"
       >
-        <button type="submit" aria-label="Lancer la recherche">
-          <Image src="/search.png" alt="recherche" width={14} height={14} />
-        </button>
+        <Image src="/search.png" alt="recherche" width={14} height={14} className="opacity-50" />
         <input
           type="text"
           placeholder="Rechercher..."
@@ -81,7 +86,7 @@ const Navbar = () => {
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-[200px] p-2 bg-transparent outline-none"
         />
-      </form>
+      </div>
       {/* ICONS AND USER */}
       <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
         <ThemeToggleButton />
