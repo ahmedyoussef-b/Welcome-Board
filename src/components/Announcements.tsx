@@ -67,21 +67,23 @@ const Announcements = async () => {
               
               if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
                 if (fileInfo.files.length > 1) {
-                  // Gallery view - vertical stack
+                  // Gallery view - horizontal scroll
                   content = (
-                    <div className="mt-2 flex flex-col gap-2">
-                      {fileInfo.files.map((file: any, idx: number) => (
-                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-black/5">
-                           <Image 
-                              src={file.url} 
-                              alt={`${announcement.title} - image ${idx + 1}`} 
-                              width={800}
-                              height={600}
-                              style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                              className="rounded-md group-hover:opacity-90 transition-opacity" 
-                            />
-                        </Link>
-                      ))}
+                    <div className="mt-2 flex overflow-x-auto space-x-2 p-1">
+                        {fileInfo.files.map((file: any, idx: number) => (
+                            <div key={idx} className="flex-shrink-0 w-40 h-40 relative rounded-md overflow-hidden group bg-black/5">
+                                <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full h-full">
+                                    <Image
+                                        src={file.url}
+                                        alt={`${announcement.title} - image ${idx + 1}`}
+                                        fill
+                                        sizes="160px"
+                                        style={{ objectFit: 'cover' }}
+                                        className="group-hover:opacity-80 transition-opacity"
+                                    />
+                                </Link>
+                            </div>
+                        ))}
                     </div>
                   );
                 } else {

@@ -49,20 +49,19 @@ const AnnouncementListPage = async ({
         if (fileInfo.files.length > 1) {
           // Gallery view
           content = (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-w-lg">
-              {fileInfo.files.map((file: any, index: number) => (
-                <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50">
-                  <Image 
-                    src={file.url} 
-                    alt={`${item.title} - image ${index + 1}`} 
-                    width={400}
-                    height={400}
-                    sizes="150px" 
-                    style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                    className="group-hover:scale-105 transition-transform" 
-                  />
-                </Link>
-              ))}
+            <div className="flex overflow-x-auto space-x-2 py-2 max-w-lg">
+                {fileInfo.files.map((file: any, index: number) => (
+                    <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block flex-shrink-0 w-24 h-24 relative rounded-md overflow-hidden group bg-muted/50">
+                        <Image
+                            src={file.url}
+                            alt={`${item.title} - image ${index + 1}`}
+                            fill
+                            sizes="96px"
+                            style={{ objectFit: 'cover' }}
+                            className="group-hover:opacity-80 transition-opacity"
+                        />
+                    </Link>
+                ))}
             </div>
           );
         } else {
