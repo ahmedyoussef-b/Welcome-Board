@@ -4,7 +4,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { KeyRound, Shield, User, GraduationCap, Users } from 'lucide-react';
+import { KeyRound, Shield, User, GraduationCap, Users, GalleryHorizontal } from 'lucide-react';
 import RoleCard from './RoleCard';
 import { useSelector } from 'react-redux';
 import { selectIsAuthenticated, selectCurrentUser } from '@/lib/redux/slices/authSlice';
@@ -30,6 +30,11 @@ const roles = [
     description: "Consultez votre emploi du temps, voyez vos devoirs et examens, et participez activement aux cours en ligne.",
     icon: GraduationCap,
   },
+  {
+    title: 'Visiteur',
+    description: "Consultez les annonces publiques et la galerie des événements de l'école. L'administrateur peut mettre à jour ces sections à tout moment.",
+    icon: GalleryHorizontal,
+  }
 ];
 
 export default function LandingPage() {
