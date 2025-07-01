@@ -47,12 +47,12 @@ const AnnouncementListPage = async ({
       if (fileInfo.fileUrl) {
         if (fileInfo.fileType === 'image') {
           content = (
-            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-24 h-16 relative">
+            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-sm relative aspect-video">
               <Image 
                 src={fileInfo.fileUrl} 
                 alt={item.title} 
                 fill
-                sizes="100px"
+                sizes="(max-width: 640px) 100vw, 384px"
                 className="rounded-md object-cover hover:opacity-80 transition-opacity" 
               />
             </Link>
@@ -66,10 +66,10 @@ const AnnouncementListPage = async ({
           );
         }
       } else {
-        content = <span className="text-muted-foreground line-clamp-2">{item.description}</span>;
+        content = <p className="text-muted-foreground whitespace-pre-wrap">{item.description}</p>;
       }
     } catch (e) {
-      content = <span className="text-muted-foreground line-clamp-2">{item.description}</span>;
+      content = <p className="text-muted-foreground whitespace-pre-wrap">{item.description}</p>;
     }
 
     return (
@@ -77,12 +77,12 @@ const AnnouncementListPage = async ({
         key={item.id}
         className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
       >
-        <td className="p-4 font-medium">{item.title}</td>
-        <td>{content}</td>
-        <td>{item.class?.name || "Tous"}</td>
-        <td className="hidden md:table-cell">{new Intl.DateTimeFormat("fr-FR").format(new Date(item.date))}</td>
+        <td className="p-4 font-medium align-top">{item.title}</td>
+        <td className="p-4 align-top">{content}</td>
+        <td className="p-4 align-top">{item.class?.name || "Tous"}</td>
+        <td className="hidden md:table-cell p-4 align-top">{new Intl.DateTimeFormat("fr-FR").format(new Date(item.date))}</td>
         {userRole === Role.ADMIN && (
-          <td>
+          <td className="p-4 align-top">
             <div className="flex items-center gap-2">
               <FormContainer table="announcement" type="update" data={item} />
               <FormContainer table="announcement" type="delete" id={item.id} />
