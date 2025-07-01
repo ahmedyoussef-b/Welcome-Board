@@ -82,6 +82,18 @@
     --sidebar-border: 30 10% 20%;
     --sidebar-ring: 45 100% 58%;
   }
+
+  /* Style for calendar event days */
+  .event-day:not(.react-calendar__tile--active) {
+    @apply bg-accent/20 rounded-md;
+  }
+  .event-day:not(.react-calendar__tile--active):enabled:hover,
+  .event-day:not(.react-calendar__tile--active):enabled:focus {
+    @apply bg-accent/40;
+  }
+  .react-calendar__tile--active.event-day {
+     @apply bg-accent text-accent-foreground;
+  }
 }
 
 @layer base {

@@ -11,7 +11,11 @@ import { Skeleton } from "./ui/skeleton";
 type ValuePiece = Date | null;
 type Value = ValuePiece | [ValuePiece, ValuePiece];
 
-const EventCalendar = () => {
+interface EventCalendarProps {
+  eventDates?: string[]; // Expecting ISO date strings (YYYY-MM-DD)
+}
+
+const EventCalendar = ({ eventDates = [] }: EventCalendarProps) => {
   const [value, onChange] = useState<Value>(new Date());
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
@@ -34,6 +38,16 @@ const EventCalendar = () => {
     );
   }
 
+  const tileClassName = ({ date, view }: { date: Date; view: string }) => {
+    if (view === 'month') {
+      const dateString = date.toISOString().split('T')[0];
+      if (eventDates.includes(dateString)) {
+        return 'event-day'; // Custom class for highlighting
+      }
+    }
+    return null;
+  };
+
   return (
     <div
       className={cn(
@@ -47,6 +61,7 @@ const EventCalendar = () => {
         value={value}
         className="!border-none !font-sans"
         locale="fr-FR"
+        tileClassName={tileClassName}
       />
     </div>
   );
