@@ -2,8 +2,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Eye, Edit, Trash2, MessageSquare } from 'lucide-react';
-import FormContainer from '@/components/FormContainer';
+import { Eye, Trash2, MessageSquare } from 'lucide-react';
+import FormModal from '@/components/FormModal';
 import { Badge } from '@/components/ui/badge';
 import { Role as AppRole, User as UserType, Subject as SubjectType, Class as ClassType, Student as StudentTypePrisma, Parent as ParentTypePrisma, UserSex } from '@/types';
 import DynamicAvatar from '@/components/DynamicAvatar';
@@ -138,7 +138,6 @@ const UserEntityCard: React.FC<UserEntityCardProps> = ({ entity, entityType, use
                     </button>
                 )}
                 {userRole === AppRole.ADMIN && (
-                    // The FormModal component will render the delete button correctly.
                     <FormModal table={entityType} type="delete" id={entity.id} />
                 )}
             </div>
