@@ -52,7 +52,7 @@ const AdminPage = async ({
   }
 
   return (
-    <div className="p-4 flex flex-col gap-8">
+    <div className="p-4 flex flex-col gap-6">
       {/* Page Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -88,36 +88,37 @@ const AdminPage = async ({
         ))}
       </div>
 
-      {/* Top Dashboard Widgets */}
-      <div className="flex gap-4 flex-col md:flex-row">
-        <div className="w-full lg:w-2/3 flex flex-col gap-8">
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left & Center Column (Spans 2) */}
+        <div className="lg:col-span-2 flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <UserCard type={AppRole.ADMIN} bgColorClass="bg-sky-500" />
             <UserCard type={AppRole.TEACHER} bgColorClass="bg-teal-500" />
-            <UserCard type={AppRole.STUDENT} bgColorClass="bg-amber-700" /> 
+            <UserCard type={AppRole.STUDENT} bgColorClass="bg-amber-700" />
             <UserCard type={AppRole.PARENT} bgColorClass="bg-purple-500" />
           </div>
-          <div className="flex gap-4 flex-col lg:flex-row">
-            <div className="w-full lg:w-1/3 h-[450px]">
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            <div className="xl:col-span-1 h-[450px]">
               <CountChartContainer />
             </div>
-            <div className="w-full lg:w-2/3 h-[450px]">
+            <div className="xl:col-span-2 h-[450px]">
               <AttendanceChartContainer />
             </div>
           </div>
+
+          <div className="h-[500px]">
+            <FinanceChart />
+          </div>
         </div>
-        <div className="w-full lg:w-1/3 flex flex-col">
+
+        {/* Right Column (Spans 1) */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
           <EventCalendarContainer date={(await searchParams).date}/>
-        </div>
-      </div>
-      
-      {/* Bottom Dashboard Widgets */}
-      <div className="flex gap-4 flex-col md:flex-row">
-        <div className="w-full md:w-2/3 h-[500px]">
-          <FinanceChart />
-        </div>
-        <div className="w-full md:w-1/3 h-[500px] flex flex-col">
-          <Announcements />
+          <div className="flex-grow">
+            <Announcements />
+          </div>
         </div>
       </div>
     </div>
