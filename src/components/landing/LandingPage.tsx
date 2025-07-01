@@ -38,22 +38,28 @@ export default function LandingPage() {
     const locale = 'fr'; // App is French-only now
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-background via-card to-background p-8">
-            <main className="flex flex-1 flex-col items-center justify-center text-center">
+        <div 
+            className="relative flex flex-col items-center justify-center min-h-screen bg-cover bg-center bg-no-repeat p-8"
+            style={{ backgroundImage: 'url(/riadh5.jpg)' }}
+        >
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-black/60 z-0" />
+            
+            <main className="relative z-10 flex flex-1 flex-col items-center justify-center text-center text-white">
                 <div className="mb-12">
                     <div className="inline-block p-4 bg-primary/10 rounded-full mb-4">
                         <KeyRound className="w-12 h-12 text-primary" />
                     </div>
-                    <h1 className="text-5xl md:text-6xl font-bold font-headline text-foreground">
+                    <h1 className="text-5xl md:text-6xl font-bold font-headline text-white">
                         Bienvenue sur <span className="text-primary">SchooLama</span>
                     </h1>
-                    <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+                    <p className="mt-4 text-lg text-neutral-200 max-w-2xl mx-auto">
                         Votre plateforme tout-en-un pour une gestion scolaire simplifiée et une expérience d'apprentissage interactive.
                     </p>
                 </div>
 
                 <div className="mb-16">
-                    <h2 className="text-3xl font-bold text-foreground mb-8">Découvrez les rôles</h2>
+                    <h2 className="text-3xl font-bold text-white mb-8">Découvrez les rôles</h2>
                     <div className="flex flex-wrap items-center justify-center gap-8">
                         {roles.map((role) => (
                             <RoleCard
@@ -76,7 +82,7 @@ export default function LandingPage() {
                           <Link href={`/${locale}/login`}>Commencer</Link>
                       </Button>
                   )}
-                  <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} SchooLama. Tous droits réservés.</p>
+                  <p className="text-xs text-neutral-300">© {new Date().getFullYear()} SchooLama. Tous droits réservés.</p>
                 </div>
             </main>
         </div>
