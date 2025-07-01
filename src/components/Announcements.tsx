@@ -5,7 +5,6 @@ import type { Prisma } from "@prisma/client";
 import Link from 'next/link';
 import Image from "next/image";
 import { FileText } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 const Announcements = async () => {
   const session = await getServerSession();
@@ -56,7 +55,7 @@ const Announcements = async () => {
       <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold">Annonces</h1>
       </div>
-      <ScrollArea className="flex-grow mt-4 pr-3">
+      <div className="flex-grow mt-4 pr-2 overflow-y-auto">
         <div className="flex flex-col gap-4">
           {data.map((announcement, index) => {
             const cardColors = ["bg-lamaSkyLight", "bg-lamaPurpleLight", "bg-lamaYellowLight"];
@@ -70,7 +69,7 @@ const Announcements = async () => {
                 if (fileInfo.files.length > 1) {
                   // Gallery view
                   content = (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {fileInfo.files.slice(0, 4).map((file: any, idx: number) => (
                         <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50">
                            <Image 
@@ -164,7 +163,7 @@ const Announcements = async () => {
            );
          })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
