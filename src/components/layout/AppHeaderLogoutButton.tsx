@@ -30,7 +30,7 @@ export function AppHeaderLogoutButton() {
   useEffect(() => {
     if (logoutSuccess) {
       toast({ title: "Déconnexion réussie", description: "Vous avez été déconnecté avec succès." });
-      router.push('/fr/login'); // Redirect to login after successful logout
+      router.push('/fr'); // Redirect to home page after successful logout
       router.refresh(); // Force refresh to ensure server session is cleared
     }
     if (logoutIsError) {
@@ -42,8 +42,8 @@ export function AppHeaderLogoutButton() {
         errorMessage = logoutErrorData.message || "Une erreur sérialisée s'est produite lors de la déconnexion.";
       }
       toast({ variant: "destructive", title: "Échec de la déconnexion", description: errorMessage });
-      // Still push to login page as a fallback, authSlice should clear user data
-      router.push('/fr/login');
+      // Still push to home page as a fallback, authSlice should clear user data
+      router.push('/fr');
       router.refresh();
     }
   }, [logoutSuccess, logoutIsError, logoutErrorData, router, toast]);

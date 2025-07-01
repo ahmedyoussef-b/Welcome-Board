@@ -42,7 +42,7 @@ export default function DashboardPage() {
   
   const handleLogout = () => {
     logout();
-    router.replace('/fr/login');
+    router.replace('/fr');
   };
 
   const handleClassSelect = (classroom: ClassRoom) => {

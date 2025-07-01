@@ -37,7 +37,7 @@ export default function StudentChatroomPage() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/fr/login');
+    router.replace('/fr');
   };
 
   const handleJoinSession = (invitation: Notification & { actionUrl: string }) => {
