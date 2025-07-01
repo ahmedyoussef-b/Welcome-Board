@@ -6,8 +6,7 @@ import { Prisma } from '@prisma/client';
 
 const publicAnnouncementSchema = z.object({
   title: z.string().min(1, 'Le titre est requis.'),
-  fileUrl: z.string().url('Une URL de fichier valide est requise.'),
-  fileType: z.enum(['image', 'pdf', 'other']),
+  description: z.string().min(1, 'Veuillez téléverser au moins un fichier.'), // Will hold JSON string of files
 });
 
 export async function POST(request: Request) {
@@ -18,22 +17,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'Données invalides', errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const { title, fileUrl, fileType } = validation.data;
-
-    // We'll store the public announcement in the regular Announcement table.
-    // We can use the description field to store structured data (JSON string).
-    const publicAnnouncementData = {
-      isPublic: true,
-      url: fileUrl,
-      type: fileType,
-    };
+    const { title, description } = validation.data;
 
     const newAnnouncement = await prisma.announcement.create({
       data: {
         title,
-        description: JSON.stringify(publicAnnouncementData),
+        description, // The JSON string is stored directly
         date: new Date(),
-        // Public announcements are not tied to a specific class
         classId: null,
       },
     });
@@ -48,32 +38,29 @@ export async function POST(request: Request) {
 export async function GET() {
   try {
     const allAnnouncements = await prisma.announcement.findMany({
-      orderBy: { date: 'desc' }, // Corrected from createdAt to date
-      take: 20, // Fetch more to ensure we get enough public ones
+      orderBy: { date: 'desc' },
+      take: 20,
     });
 
     const publicAnnouncements = allAnnouncements
       .map(ann => {
         try {
-          // Attempt to parse the description as JSON
           const publicData = JSON.parse(ann.description || '{}');
-          if (publicData.isPublic) {
+          if (publicData.isPublic && Array.isArray(publicData.files)) {
             return {
               id: ann.id,
               title: ann.title,
               date: ann.date,
-              url: publicData.url,
-              type: publicData.type,
+              files: publicData.files,
             };
           }
           return null;
         } catch (e) {
-          // Not a JSON description, so not a public announcement
           return null;
         }
       })
       .filter(Boolean)
-      .slice(0, 10); // Limit to the 10 most recent public ones
+      .slice(0, 10);
 
     return NextResponse.json(publicAnnouncements);
   } catch (error) {

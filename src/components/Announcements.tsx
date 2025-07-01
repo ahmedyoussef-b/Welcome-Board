@@ -13,7 +13,6 @@ const Announcements = async () => {
   const currentUserId = session?.userId;
 
   const queryOptions: Prisma.AnnouncementFindManyArgs = {
-    // take: 3, // Removed limit to fetch all announcements
     orderBy: { date: "desc" },
     include: { class: { select: { name: true } } } 
   };
@@ -53,7 +52,7 @@ const Announcements = async () => {
   }
 
   return (
-    <div className="bg-muted p-4 rounded-md h-[500px] flex flex-col">
+    <div className="bg-muted p-4 rounded-md flex-grow flex flex-col">
       <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold">Annonces</h1>
       </div>
@@ -66,27 +65,42 @@ const Announcements = async () => {
             let content;
             try {
               const fileInfo = JSON.parse(announcement.description || '{}');
-              if (fileInfo.fileUrl) {
-                 if (fileInfo.fileType === 'image') {
-                     content = (
-                         <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block aspect-video w-full relative overflow-hidden rounded-md group-hover:opacity-90 transition-opacity">
-                             <Image 
-                                 src={fileInfo.fileUrl} 
-                                 alt={announcement.title} 
-                                 fill
-                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                                 className="object-cover"
-                             />
-                         </Link>
-                     );
-                 } else {
-                     content = (
-                         <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline mt-1">
-                             <FileText className="h-4 w-4"/>
-                             <span>Voir le document</span>
-                         </Link>
-                     );
-                 }
+              
+              if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
+                if (fileInfo.files.length > 1) {
+                  // Gallery view
+                  content = (
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      {fileInfo.files.slice(0, 4).map((file: any, idx: number) => (
+                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full aspect-square relative rounded-md overflow-hidden group">
+                          <Image src={file.url} alt={`${announcement.title} - image ${idx + 1}`} fill sizes="150px" className="object-cover group-hover:scale-105 transition-transform" />
+                          {idx === 3 && fileInfo.files.length > 4 && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-lg">
+                              +{fileInfo.files.length - 4}
+                            </div>
+                          )}
+                        </Link>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  // Single file view
+                  const file = fileInfo.files[0];
+                  if (file.type === 'image') {
+                    content = (
+                      <Link href={file.url} target="_blank" rel="noopener noreferrer" className="mt-2 block aspect-video w-full relative overflow-hidden rounded-md group-hover:opacity-90 transition-opacity">
+                        <Image src={file.url} alt={announcement.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+                      </Link>
+                    );
+                  } else {
+                    content = (
+                      <Link href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline mt-1">
+                        <FileText className="h-4 w-4"/>
+                        <span>Voir le document</span>
+                      </Link>
+                    );
+                  }
+                }
               } else {
                 content = <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">{announcement.description}</p>;
               }

@@ -44,26 +44,36 @@ const AnnouncementListPage = async ({
     let content;
     try {
       const fileInfo = JSON.parse(item.description || '{}');
-      if (fileInfo.fileUrl) {
-        if (fileInfo.fileType === 'image') {
+      
+      if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
+        if (fileInfo.files.length > 1) {
+          // Gallery view
           content = (
-            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
-              <Image 
-                src={fileInfo.fileUrl} 
-                alt={item.title} 
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                className="rounded-md object-cover hover:opacity-80 transition-opacity" 
-              />
-            </Link>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-w-lg">
+              {fileInfo.files.map((file: any, index: number) => (
+                <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full aspect-square relative rounded-md overflow-hidden group">
+                  <Image src={file.url} alt={`${item.title} - image ${index + 1}`} fill sizes="150px" className="object-cover group-hover:scale-105 transition-transform" />
+                </Link>
+              ))}
+            </div>
           );
         } else {
-          content = (
-            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-              <FileText className="h-4 w-4"/>
-              Voir le document
-            </Link>
-          );
+          // Single file view
+          const file = fileInfo.files[0];
+          if (file.type === 'image') {
+            content = (
+              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-xs relative aspect-video">
+                <Image src={file.url} alt={item.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" className="rounded-md object-cover hover:opacity-80 transition-opacity" />
+              </Link>
+            );
+          } else {
+            content = (
+              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                <FileText className="h-4 w-4"/>
+                Voir le document
+              </Link>
+            );
+          }
         }
       } else {
         content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;

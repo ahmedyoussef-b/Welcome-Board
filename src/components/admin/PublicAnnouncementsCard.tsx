@@ -106,7 +106,7 @@ export default function PublicAnnouncementsCard() {
         <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
           <GalleryHorizontal className="h-12 w-12 mb-4 text-gray-300" />
           <h3 className="text-lg font-medium">Aucune annonce publique</h3>
-          <p className="text-sm">Publiez une annonce depuis la page "Gestion du Contenu Visiteur".</p>
+          <p className="text-sm">Publiez une annonce pour la voir ici.</p>
         </div>
       );
     }
@@ -146,7 +146,7 @@ export default function PublicAnnouncementsCard() {
                      <Image src={ann.files[0].url} alt={ann.title} fill sizes="300px" className="rounded-md object-cover group-hover:opacity-90 transition-opacity" />
                   </Link>
                 )}
-                {ann.files.length === 1 && ann.files[0].type !== 'image' && (
+                 {ann.files.length === 1 && ann.files[0].type !== 'image' && (
                   <Link href={ann.files[0].url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
                     <FileText className="h-4 w-4"/> Voir le document
                   </Link>
@@ -169,10 +169,10 @@ export default function PublicAnnouncementsCard() {
   };
 
   return (
-    <Card className="h-[600px] flex flex-col">
+    <Card className="h-full min-h-[500px] flex flex-col">
       <CardHeader>
         <CardTitle>Annonces Publiques Récentes</CardTitle>
-        <CardDescription>Les 10 dernières annonces publiées pour les visiteurs.</CardDescription>
+        <CardDescription>Les 10 dernières annonces publiées.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden">
         {renderContent()}

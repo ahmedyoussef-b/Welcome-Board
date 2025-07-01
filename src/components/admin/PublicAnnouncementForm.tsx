@@ -9,20 +9,14 @@ import { CldUploadWidget } from "next-cloudinary";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { UploadCloud, FileText, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
+import { UploadCloud, FileText, Image as ImageIcon, Trash2, Loader2, Plus, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
+import Image from "next/image";
 
-// Schema for a single file object
-const fileSchema = z.object({
-    url: z.string(),
-    type: z.string(),
-});
-
-// Main schema for the form
 const publicAnnouncementSchema = z.object({
   title: z.string().min(1, 'Le titre est requis.'),
-  description: z.string().min(1, 'Veuillez téléverser au moins un fichier.'), // Will hold JSON string of files
+  description: z.string().min(1, 'Veuillez téléverser au moins un fichier.'),
 });
 
 type PublicAnnouncementFormValues = z.infer<typeof publicAnnouncementSchema>;
@@ -30,6 +24,7 @@ type PublicAnnouncementFormValues = z.infer<typeof publicAnnouncementSchema>;
 interface CloudinaryUploadWidgetInfo {
   secure_url: string;
   resource_type: string;
+  original_filename?: string;
 }
 
 interface CloudinaryUploadWidgetResults {
@@ -48,7 +43,6 @@ export default function PublicAnnouncementForm() {
   });
 
   useEffect(() => {
-    // Update the hidden 'description' field whenever uploadedFiles changes
     const descriptionValue = uploadedFiles.length > 0
       ? JSON.stringify({ isPublic: true, files: uploadedFiles })
       : "";
@@ -58,9 +52,10 @@ export default function PublicAnnouncementForm() {
   const handleUploadSuccess = (result: CloudinaryUploadWidgetResults) => {
     if (result.event === "success" && typeof result.info === 'object' && 'secure_url' in result.info) {
       const info = result.info as CloudinaryUploadWidgetInfo;
-      const file = { url: info.secure_url, type: info.resource_type };
+      const fileType = info.resource_type === 'raw' ? 'pdf' : info.resource_type;
+      const file = { url: info.secure_url, type: fileType };
       setUploadedFiles(prev => [...prev, file]);
-      toast({ title: "Fichier ajouté", description: info.original_filename || "Téléversement réussi." });
+      toast({ title: "Fichier ajouté", description: info.original_filename || "Le fichier a été ajouté à la galerie." });
     }
   };
 
@@ -103,13 +98,13 @@ export default function PublicAnnouncementForm() {
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
       <div>
-        <Label htmlFor="title">Titre de l'annonce</Label>
+        <Label htmlFor="title">Titre de l'annonce / Galerie</Label>
         <Input id="title" {...register("title")} disabled={isSubmitting} className="mt-1"/>
         {errors.title && <p className="text-destructive text-sm mt-1">{errors.title.message}</p>}
       </div>
 
       <div>
-        <Label>Fichiers (Galerie ou document unique)</Label>
+        <Label>Fichiers</Label>
         <input type="hidden" {...register("description")} />
         
         {uploadedFiles.length > 0 ? (
