@@ -4,9 +4,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { BookOpen, Plus, Hourglass, Loader2, Trash2, Star, Save } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { Subject, Class, CreateSubjectPayload } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { addMatiere, deleteMatiere } from '@/lib/redux/features/subjects/subjectsSlice';
@@ -174,67 +178,64 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
             <p>Veuillez d'abord configurer des classes et des matières.</p>
           </div>
         ) : (
-          <Tabs defaultValue={classes[0]?.id.toString()} className="w-full">
-            <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-              <TabsList className="flex w-max">
-                {classes.map(cls => (
-                  <TabsTrigger key={cls.id} value={cls.id.toString()}>
-                    {cls.id === firstClassId && <Star className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />}
-                    {cls.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
+          <Accordion type="single" collapsible className="w-full" defaultValue={firstClassId?.toString()}>
             {classes.map(cls => (
-              <TabsContent key={cls.id} value={cls.id.toString()} className="mt-4">
-                <Card className="p-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Matière</TableHead>
-                        <TableHead className="w-[150px] text-right">Heures/semaine</TableHead>
-                        <TableHead className="w-[80px] text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {subjects.map(subject => {
-                        const requirement = getRequirement(cls.id, subject.id);
-                        const isDefaulted = isUsingDefault(cls.id, subject.id);
-                        const isCurrentlyDeleting = deletingId === subject.id;
-                        return (
-                          <TableRow key={subject.id}>
-                            <TableCell className="font-medium">{subject.name}</TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                id={`hours-${cls.id}-${subject.id}`}
-                                type="number"
-                                className={cn("w-24 ml-auto", isDefaulted && "text-muted-foreground italic")}
-                                min="0"
-                                value={requirement ?? ''}
-                                onChange={(e) => handleHoursChange(cls.id, subject.id, parseInt(e.target.value) || 0)}
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => handleDeleteSubject(subject.id)}
-                                    className="text-destructive hover:text-destructive/90"
-                                    disabled={isCurrentlyDeleting}
-                                >
-                                    {isCurrentlyDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}
-                                </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </Card>
-              </TabsContent>
+              <AccordionItem value={cls.id.toString()} key={cls.id}>
+                <AccordionTrigger>
+                  <div className="flex items-center gap-2">
+                    {cls.id === firstClassId && <Star className="w-4 h-4 mr-2 text-yellow-500 fill-yellow-500" />}
+                    <span>{cls.name}</span>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                   <Card className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Matière</TableHead>
+                          <TableHead className="w-[150px] text-right">Heures/semaine</TableHead>
+                          <TableHead className="w-[80px] text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {subjects.map(subject => {
+                          const requirement = getRequirement(cls.id, subject.id);
+                          const isDefaulted = isUsingDefault(cls.id, subject.id);
+                          const isCurrentlyDeleting = deletingId === subject.id;
+                          return (
+                            <TableRow key={subject.id}>
+                              <TableCell className="font-medium">{subject.name}</TableCell>
+                              <TableCell className="text-right">
+                                <Input
+                                  id={`hours-${cls.id}-${subject.id}`}
+                                  type="number"
+                                  className={cn("w-24 ml-auto", isDefaulted && "text-muted-foreground italic")}
+                                  min="0"
+                                  value={requirement ?? ''}
+                                  onChange={(e) => handleHoursChange(cls.id, subject.id, parseInt(e.target.value) || 0)}
+                                />
+                              </TableCell>
+                              <TableCell className="text-right">
+                                  <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => handleDeleteSubject(subject.id)}
+                                      className="text-destructive hover:text-destructive/90"
+                                      disabled={isCurrentlyDeleting}
+                                  >
+                                      {isCurrentlyDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16}/>}
+                                  </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </Card>
+                </AccordionContent>
+              </AccordionItem>
             ))}
-          </Tabs>
+          </Accordion>
         )}
       </Card>
     </div>
