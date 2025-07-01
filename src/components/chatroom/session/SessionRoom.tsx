@@ -1,3 +1,4 @@
+// src/components/chatroom/session/SessionRoom.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -10,18 +11,16 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { endSession, updateStudentPresence, tickTimer } from '@/lib/redux/slices/sessionSlice';
 import { addNotification } from '@/lib/redux/slices/notificationSlice';
 import { addSessionReport, type SessionReport } from '@/lib/redux/slices/reportSlice';
-import VideoTile from './VideoTile';
-import HandRaisePanel from './HandRaisePanel';
-import ReactionsPanel from './ReactionsPanel';
-import CreatePollDialog from './CreatePollDialog';
-import PollPanel from './PollPanel';
-import CreateQuizDialog from './CreateQuizDialog';
-import QuizPanel from './QuizPanel';
-import RewardsPanel from './RewardsPanel';
-import RaiseHandButton from './RaiseHandButton';
-import TimerControls from './TimerControls';
 import TimerDisplay from './TimerDisplay';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
+
+// Import newly created components
+import OverviewTab from './tabs/OverviewTab';
+import InteractionsTab from './tabs/InteractionsTab';
+import ActivitiesTab from './tabs/ActivitiesTab';
+import QuizzesTab from './tabs/QuizzesTab';
+import RewardsTab from './tabs/RewardsTab';
+import SessionSidebar from './SessionSidebar';
 
 export default function SessionRoom() {
   const dispatch = useAppDispatch();
@@ -207,130 +206,37 @@ export default function SessionRoom() {
               </TabsList>
               
               <TabsContent value="overview" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Video className="w-5 h-5" />
-                      Participants ({onlineCount} connectés)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {activeSession.participants.map((participant) => (
-                        <VideoTile
-                          key={participant.id}
-                          name={participant.id === user?.id ? `${participant.name} (Vous)`: participant.name}
-                          isOnline={participant.isOnline}
-                          isTeacher={participant.role === 'teacher' || participant.role === 'admin'}
-                          hasRaisedHand={participant.hasRaisedHand}
-                          points={participant.points}
-                          badgeCount={participant.badges?.length}
-                        />
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                 <OverviewTab activeSession={activeSession} user={user} />
               </TabsContent>
               
               <TabsContent value="interactions" className="mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <HandRaisePanel isTeacher={isHost} />
-                  <ReactionsPanel 
-                    studentId={!isHost ? user?.id : undefined}
-                    studentName={!isHost ? user?.name : undefined}
-                    isTeacher={isHost} 
-                  />
-                </div>
+                <InteractionsTab isHost={isHost} user={user} />
               </TabsContent>
               
               <TabsContent value="activities" className="mt-6">
-                <div className="grid grid-cols-1 gap-6">
-                   <PollPanel 
-                    studentId={currentUserParticipant?.id}
-                    isTeacher={isHost} 
-                  />
-                </div>
+                <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
               </TabsContent>
 
               {activeSession.sessionType === 'class' && (
                   <>
                     <TabsContent value="quizzes" className="mt-6">
-                        <QuizPanel 
-                            studentId={currentUserParticipant?.id}
-                            studentName={currentUserParticipant?.name}
-                            isTeacher={isHost} 
-                        />
+                        <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
                     </TabsContent>
                     <TabsContent value="rewards" className="mt-6">
-                        <RewardsPanel isTeacher={isHost} />
+                        <RewardsTab isHost={isHost} />
                     </TabsContent>
                   </>
               )}
 
             </Tabs>
           </div>
-
-          <div className="space-y-4">
-            {isHost && (
-              <Card>
-                <CardHeader>
-                    <CardTitle className="text-base">Outils d'animation</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    <TimerControls />
-                    <CreatePollDialog />
-                    {activeSession.sessionType === 'class' && <CreateQuizDialog />}
-                </CardContent>
-              </Card>
-            )}
-            
-            {currentUserParticipant && currentUserParticipant.role === 'student' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Actions rapides</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <RaiseHandButton studentId={user!.id} studentName={user!.name || ''} />
-                </CardContent>
-              </Card>
-            )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Statistiques</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Participants</span>
-                  <span>{onlineCount}/{totalCount}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Mains levées</span>
-                  <span>{activeSession.raisedHands.length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Réactions</span>
-                  <span>{activeSession.reactions.length}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span>Sondages</span>
-                  <span>{activeSession.polls.length}</span>
-                </div>
-                 {activeSession.sessionType === 'class' && (
-                    <>
-                        <div className="flex justify-between text-sm">
-                          <span>Quiz</span>
-                          <span>{activeSession.quizzes.length}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span>Points totaux</span>
-                          <span>{activeSession.participants.reduce((total, p) => total + (p.points || 0), 0)}</span>
-                        </div>
-                    </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          
+          <SessionSidebar 
+            isHost={isHost} 
+            currentUserParticipant={currentUserParticipant}
+            activeSession={activeSession}
+            user={user}
+          />
         </div>
       </div>
     </div>
