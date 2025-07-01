@@ -131,7 +131,7 @@ export type EventSchema = z.infer<typeof eventSchema>;
 export const announcementSchema = z.object({
   id: z.coerce.number().optional(),
   title: z.string().min(1, { message: "Le titre est requis !" }),
-  description: z.string().min(1, { message: "La description est requise !" }),
+  description: z.string().min(1, { message: "Veuillez téléverser un fichier." }), // Will contain JSON
   date: z.coerce.date({ message: "La date est requise !" }),
   classId: optionalNumberIdSchema,
 });

@@ -6,22 +6,18 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import { ITEM_PER_PAGE } from "@/lib/settings";
 import Image from "next/image";
+import Link from 'next/link';
 import { getServerSession } from "@/lib/auth-utils";
-import { type AnnouncementWithClass, type Class } from "@/types/index"; 
+import { type AnnouncementWithClass } from "@/types/index"; 
 import { Prisma, Role } from "@prisma/client"; 
 import prisma from "@/lib/prisma";
-// getI18n n'est plus nécessaire ici
+import { FileText, Image as ImageIcon } from 'lucide-react';
 
 interface ColumnConfig {
   header: string;
   accessor: string;
   className?: string;
 }
-
-type classInfo = {
-  name: string; 
-  value?: string;
-};
 
 const AnnouncementListPage = async ({
   searchParams,
@@ -32,10 +28,10 @@ const AnnouncementListPage = async ({
   const session = await getServerSession();
   const userRole = session?.role as Role | undefined;
   const currentUserId = session?.userId;
-  // t n'est plus nécessaire
   
   const baseColumns: ColumnConfig[] = [
     { header: "Titre", accessor: "title" },
+    { header: "Contenu", accessor: "content" },
     { header: "Classe", accessor: "class" },
     { header: "Date", accessor: "date", className: "hidden md:table-cell" },
   ];
@@ -45,24 +41,44 @@ const AnnouncementListPage = async ({
 
   const columns: ColumnConfig[] = [...baseColumns, ...adminColumns]; 
 
-  const renderRow = (item: AnnouncementWithClass) => (
-    <tr
-      key={item.id}
-      className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
-    >
-      <td className="flex items-center gap-4 p-4">{item.title}</td>
-      <td>{item.class?.name || "Tous"}</td>
-      <td className="hidden md:table-cell">{new Intl.DateTimeFormat("fr-FR").format(new Date(item.date))}</td>
-      {userRole === Role.ADMIN && (
-        <td>
-          <div className="flex items-center gap-2">
-            <FormContainer table="announcement" type="update" data={item} />
-            <FormContainer table="announcement" type="delete" id={item.id} />
-          </div>
-        </td>
-      )}
-    </tr>
-  );
+  const renderRow = (item: AnnouncementWithClass) => {
+    let content;
+    try {
+      const fileInfo = JSON.parse(item.description || '{}');
+      if (fileInfo.fileUrl) {
+        content = (
+          <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+            {fileInfo.fileType === 'image' ? <ImageIcon className="h-4 w-4"/> : <FileText className="h-4 w-4"/>}
+            Voir le Fichier
+          </Link>
+        );
+      } else {
+        content = <span className="text-muted-foreground line-clamp-2">{item.description}</span>;
+      }
+    } catch (e) {
+      content = <span className="text-muted-foreground line-clamp-2">{item.description}</span>;
+    }
+
+    return (
+      <tr
+        key={item.id}
+        className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
+      >
+        <td className="p-4 font-medium">{item.title}</td>
+        <td>{content}</td>
+        <td>{item.class?.name || "Tous"}</td>
+        <td className="hidden md:table-cell">{new Intl.DateTimeFormat("fr-FR").format(new Date(item.date))}</td>
+        {userRole === Role.ADMIN && (
+          <td>
+            <div className="flex items-center gap-2">
+              <FormContainer table="announcement" type="update" data={item} />
+              <FormContainer table="announcement" type="delete" id={item.id} />
+            </div>
+          </td>
+        )}
+      </tr>
+    );
+  };
 
   const pageParam = searchParams?.page;
   const p = pageParam ? parseInt(Array.isArray(pageParam) ? pageParam[0] : pageParam) : 1;
