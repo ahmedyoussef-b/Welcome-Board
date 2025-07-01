@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -29,7 +30,7 @@ export default function StudentChatroomPage() {
   useEffect(() => {
     if (!isAuthLoading) {
       if (!isAuthenticated || user?.role !== Role.STUDENT) {
-        router.replace('/');
+        router.replace('/fr');
       }
     }
   }, [isAuthenticated, user, router, isAuthLoading]);

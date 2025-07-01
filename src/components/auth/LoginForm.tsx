@@ -115,7 +115,7 @@ export function LoginForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         Pas encore de compte ?{" "} {/* Texte français direct */}
-        <Link href={`/register`} className="font-medium text-primary hover:underline"> {/* Locale enlevée, next-international gère */}
+        <Link href={`/fr/register`} className="font-medium text-primary hover:underline">
           S'inscrire {/* Texte français direct */}
         </Link>
       </p>

@@ -27,12 +27,12 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!user || user.role !== Role.TEACHER) {
-      router.replace('/');
+      router.replace('/fr');
       return;
     }
 
     if (activeSession) {
-      router.replace('/list/chatroom/session');
+      router.replace('/fr/list/chatroom/session');
     }
   }, [user, activeSession, router]);
 
@@ -65,7 +65,7 @@ export default function DashboardPage() {
       message: `La session ${selectedClass.name} a commencé avec ${selectedStudents.length} élève(s)`,
     }));
 
-    router.replace('/list/chatroom/session');
+    router.replace('/fr/list/chatroom/session');
   };
 
   if (loading || !user) {
@@ -97,7 +97,7 @@ export default function DashboardPage() {
           
           <div className="flex items-center gap-3">
             <Button
-              onClick={() => router.push('/list/chatroom/chat/teachers')}
+              onClick={() => router.push('/fr/list/chatroom/chat/teachers')}
               variant="outline"
               className="flex items-center gap-2"
             >
@@ -106,7 +106,7 @@ export default function DashboardPage() {
             </Button>
 
             <Button
-              onClick={() => router.push('/list/chatroom/reports')}
+              onClick={() => router.push('/fr/list/chatroom/reports')}
               variant="outline"
               className="flex items-center gap-2"
             >

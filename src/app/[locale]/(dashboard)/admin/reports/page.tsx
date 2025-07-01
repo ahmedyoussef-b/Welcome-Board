@@ -22,7 +22,7 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     if (!user || user.role !== Role.ADMIN) {
-      router.replace('/');
+      router.replace('/fr');
       return;
     }
   }, [user, router]);
@@ -58,7 +58,7 @@ export default function AdminReportsPage() {
           <div className="flex items-center gap-4 mb-4">
             <Button
               variant="outline"
-              onClick={() => router.push('/admin')}
+              onClick={() => router.push('/fr/admin')}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -11,7 +12,7 @@ import { fetchMeetingParticipants, startMeeting } from '@/lib/redux/slices/sessi
 import { addNotification } from '@/lib/redux/slices/notificationSlice';
 import TeacherSelector from '@/components/chatroom/dashboard/admin/TeacherSelector';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
-import { Role, Teacher, type SafeUser } from '@/types';
+import { Role, type SafeUser } from '@/types';
 import type { SessionParticipant } from '@/lib/redux/slices/sessionSlice';
 
 export default function AdminMeetingDashboard() {
@@ -24,12 +25,12 @@ export default function AdminMeetingDashboard() {
 
   useEffect(() => {
     if (!user || user.role !== Role.ADMIN) {
-      router.replace('/');
+      router.replace('/fr');
       return;
     }
     
     if (activeSession) {
-      router.replace('/list/chatroom/session');
+      router.replace('/fr/list/chatroom/session');
     }
 
     dispatch(fetchMeetingParticipants());
@@ -69,7 +70,7 @@ export default function AdminMeetingDashboard() {
       message: `La réunion "${meetingTitle}" a commencé.`,
     }));
 
-    router.replace('/list/chatroom/session');
+    router.replace('/fr/list/chatroom/session');
   };
 
   if (loading && meetingCandidates.length === 0) {

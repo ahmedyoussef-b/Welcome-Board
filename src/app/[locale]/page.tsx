@@ -20,7 +20,7 @@ export default function HomePage() {
     if (!isLoadingAuth) {
       if (isAuthenticated && currentUser) {
         const rolePath = currentUser.role.toLowerCase();
-        router.replace(`/${rolePath}`); 
+        router.replace(`/fr/${rolePath}`); 
       }
     }
   }, [isAuthenticated, isLoadingAuth, currentUser, router]);

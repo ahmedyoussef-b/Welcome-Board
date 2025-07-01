@@ -17,7 +17,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isLoading && isAuthenticated && currentUser) {
       const rolePath = currentUser.role.toLowerCase();
-      router.replace(`/${rolePath}`); 
+      router.replace(`/fr/${rolePath}`); 
     }
   }, [isLoading, isAuthenticated, currentUser, router]);
 

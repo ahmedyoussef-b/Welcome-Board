@@ -40,7 +40,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (!user || user.role !== Role.TEACHER) {
-      router.replace('/');
+      router.replace('/fr');
       return;
     }
   }, [user, router]);
@@ -75,7 +75,7 @@ export default function ReportsPage() {
           <div className="flex items-center gap-4 mb-4">
             <Button
               variant="outline"
-              onClick={() => router.push('/list/chatroom/dashboard')}
+              onClick={() => router.push('/fr/list/chatroom/dashboard')}
               className="flex items-center gap-2"
             >
               <ArrowLeft className="w-4 h-4" />

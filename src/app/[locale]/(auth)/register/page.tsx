@@ -17,7 +17,7 @@ export default function RegisterPage() {
   useEffect(() => {
     if (!isLoading && isAuthenticated && currentUser) {
       const rolePath = currentUser.role.toLowerCase();
-      router.replace(`/${rolePath}`); // next/navigation router est conscient de la locale
+      router.replace(`/fr/${rolePath}`); 
     }
   }, [isLoading, isAuthenticated, currentUser, router]);
   
@@ -40,7 +40,7 @@ export default function RegisterPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-background">
       <Spinner size="lg" />
-      <p className="ml-2">Redirection...</p> {/* Texte français direct */}
+      <p className="ml-2">Redirection...</p> 
     </div>
   );
 }

@@ -149,7 +149,7 @@ export function RegisterForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         Déjà un compte ?{" "} {/* Texte français direct */}
-        <Link href={`/login`} className="font-medium text-primary hover:underline"> {/* Locale enlevée */}
+        <Link href={`/fr/login`} className="font-medium text-primary hover:underline">
           Se connecter {/* Texte français direct */}
         </Link>
       </p>

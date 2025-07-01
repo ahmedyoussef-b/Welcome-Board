@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -17,16 +18,16 @@ export default function ChatroomIndexPage() {
     if (!isAuthLoading) {
       if (isAuthenticated && user) {
         if (user.role === Role.TEACHER) {
-          router.replace('/list/chatroom/dashboard');
+          router.replace('/fr/list/chatroom/dashboard');
         } else if (user.role === Role.STUDENT) {
-          router.replace('/list/chatroom/student');
+          router.replace('/fr/list/chatroom/student');
         } else if (user.role === Role.ADMIN) {
-          router.replace('/list/chatroom/chat/admin');
+          router.replace('/fr/list/chatroom/chat/admin');
         } else {
-          router.replace(`/${user.role.toLowerCase()}`);
+          router.replace(`/fr/${user.role.toLowerCase()}`);
         }
       } else {
-        router.replace('/login');
+        router.replace('/fr/login');
       }
     }
   }, [isAuthenticated, user, router, isAuthLoading]);
