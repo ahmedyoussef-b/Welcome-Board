@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { Eye, Edit, Trash2, MessageSquare } from 'lucide-react';
-import FormModal from '@/components/FormModal';
+import FormContainer from '@/components/FormContainer';
 import { Badge } from '@/components/ui/badge';
 import { Role as AppRole, User as UserType, Subject as SubjectType, Class as ClassType, Student as StudentTypePrisma, Parent as ParentTypePrisma, UserSex } from '@/types';
 import DynamicAvatar from '@/components/DynamicAvatar';
@@ -18,7 +18,7 @@ type BaseCardEntity = {
   img?: string | null;
   user?: Partial<Pick<UserType, 'email' | 'username' | 'img'>> | null;
 };
-export type TeacherCardData = BaseCardEntity & TeacherTypePrisma & {
+export type TeacherCardData = BaseCardEntity & ParentTypePrisma & {
   subjects: Pick<SubjectType, 'id' | 'name'>[];
 };
 export type StudentCardData = {
@@ -132,8 +132,8 @@ const UserEntityCard: React.FC<UserEntityCardProps> = ({ entity, entityType, use
                     <Eye size={18} />
                     </button>
                 </Link>
-                {entityType === 'parent' && canMessage && (
-                    <button onClick={() => setIsMessageModalOpen(true)} className="p-2 hover:bg-accent rounded-full transition-colors text-blue-500 hover:text-blue-600" title="Envoyer un message">
+                {entityType === 'parent' && canMessage && entity.userId && (
+                    <button onClick={() => setIsMessageModalOpen(true)} className="p-2 hover:bg-accent rounded-full transition-colors text-blue-500 hover:text-accent-foreground" title="Envoyer un message">
                         <MessageSquare size={18} />
                     </button>
                 )}
@@ -144,7 +144,7 @@ const UserEntityCard: React.FC<UserEntityCardProps> = ({ entity, entityType, use
             </div>
         </div>
       </div>
-      {entityType === 'parent' && (
+      {entityType === 'parent' && entity.userId && (
         <MessageModal 
           isOpen={isMessageModalOpen}
           onClose={() => setIsMessageModalOpen(false)}
