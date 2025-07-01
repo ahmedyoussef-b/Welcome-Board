@@ -51,8 +51,16 @@ const AnnouncementListPage = async ({
           content = (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-w-lg">
               {fileInfo.files.map((file: any, index: number) => (
-                <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full aspect-square relative rounded-md overflow-hidden group">
-                  <Image src={file.url} alt={`${item.title} - image ${index + 1}`} fill sizes="150px" className="object-cover group-hover:scale-105 transition-transform" />
+                <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50">
+                  <Image 
+                    src={file.url} 
+                    alt={`${item.title} - image ${index + 1}`} 
+                    width={400}
+                    height={400}
+                    sizes="150px" 
+                    style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+                    className="group-hover:scale-105 transition-transform" 
+                  />
                 </Link>
               ))}
             </div>
@@ -63,8 +71,16 @@ const AnnouncementListPage = async ({
           const fileType = file.type === 'raw' ? 'pdf' : file.type;
           if (fileType === 'image') {
             content = (
-              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
-                <Image src={file.url} alt={item.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" className="rounded-md object-cover hover:opacity-80 transition-opacity" />
+              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative">
+                <Image 
+                  src={file.url} 
+                  alt={item.title} 
+                  width={800}
+                  height={1100}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" 
+                  style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+                  className="rounded-md hover:opacity-80 transition-opacity" 
+                />
               </Link>
             );
           } else {
@@ -80,8 +96,16 @@ const AnnouncementListPage = async ({
           const fileType = fileInfo.fileType === 'raw' ? 'pdf' : fileInfo.fileType;
           if (fileType === 'image') {
             content = (
-              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
-                <Image src={fileInfo.fileUrl} alt={item.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" className="rounded-md object-cover hover:opacity-80 transition-opacity" />
+              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative">
+                <Image 
+                  src={fileInfo.fileUrl} 
+                  alt={item.title} 
+                  width={800}
+                  height={1100}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" 
+                  style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+                  className="rounded-md hover:opacity-80 transition-opacity" 
+                />
               </Link>
             );
           } else {
