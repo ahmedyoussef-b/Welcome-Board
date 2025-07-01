@@ -43,15 +43,15 @@ const Announcements = async () => {
 
   if (!data || data.length === 0) {
     return (
-      <div className="bg-muted p-4 rounded-md">
-        <h1 className="text-xl font-semibold">Annonces</h1>
-        <p className="text-sm text-gray-400 mt-4">Pas d'annonces pour le moment.</p>
+      <div className="bg-muted p-4 rounded-md h-full flex flex-col items-center justify-center">
+        <h1 className="text-xl font-semibold mb-4 self-start">Annonces</h1>
+        <p className="text-sm text-gray-400">Pas d'annonces pour le moment.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-muted p-4 rounded-md flex-grow flex flex-col">
+    <div className="bg-muted p-4 rounded-md h-full flex flex-col">
       <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold">Annonces</h1>
       </div>
