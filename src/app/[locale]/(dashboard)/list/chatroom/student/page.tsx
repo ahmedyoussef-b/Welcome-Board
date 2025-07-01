@@ -1,3 +1,4 @@
+
 // src/app/[locale]/(dashboard)/list/chatroom/student/page.tsx
 'use client';
 
@@ -13,6 +14,7 @@ import { type Notification, removeNotification } from '@/lib/redux/slices/notifi
 import { selectCurrentUser, selectIsAuthenticated, selectIsAuthLoading } from '@/lib/redux/slices/authSlice';
 import { Role } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
+import { useToast } from '@/hooks/use-toast';
 
 export default function StudentChatroomPage() {
   const router = useRouter();
@@ -20,7 +22,8 @@ export default function StudentChatroomPage() {
   const user = useAppSelector(selectCurrentUser);
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   const isAuthLoading = useAppSelector(selectIsAuthLoading);
-  const [logout] = useLogoutMutation();
+  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
+  const { toast } = useToast();
   const { notifications } = useAppSelector(state => state.notifications) as { notifications: Notification[] };
 
   const pendingInvitations: (Notification & { actionUrl: string })[] = notifications.filter(
@@ -35,8 +38,15 @@ export default function StudentChatroomPage() {
     }
   }, [isAuthenticated, user, router, isAuthLoading]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logout().unwrap();
+      toast({ title: "Déconnexion réussie" });
+      router.push('/fr');
+    } catch {
+      toast({ variant: "destructive", title: "Échec de la déconnexion" });
+      router.push('/fr');
+    }
   };
 
   const handleJoinSession = (invitation: Notification & { actionUrl: string }) => {
@@ -95,9 +105,9 @@ export default function StudentChatroomPage() {
                 </div>
               </div>
               
-              <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2">
-                <LogOut className="w-4 h-4" />
-                Déconnexion
+              <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2" disabled={isLoggingOut}>
+                {isLoggingOut ? <Spinner size="sm" className="mr-2" /> : <LogOut className="w-4 h-4" />}
+                {isLoggingOut ? "Déconnexion..." : "Déconnexion"}
               </Button>
             </div>
           </div>

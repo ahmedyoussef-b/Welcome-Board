@@ -1,3 +1,4 @@
+
 // src/app/[locale]/(dashboard)/list/chatroom/dashboard/page.tsx
 'use client';
 
@@ -16,12 +17,14 @@ import StudentSelector from '@/components/chatroom/dashboard/StudentSelector';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { Role } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
+import { useToast } from '@/hooks/use-toast';
 
 export default function DashboardPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
-  const [logout] = useLogoutMutation();
+  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
+  const { toast } = useToast();
 
   const { classes, selectedClass, selectedStudents, activeSession, loading } = useAppSelector(state => state.session);
 
@@ -40,8 +43,15 @@ export default function DashboardPage() {
     dispatch(fetchChatroomClasses());
   }, [dispatch]);
   
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    try {
+      await logout().unwrap();
+      toast({ title: "Déconnexion réussie" });
+      router.push('/fr');
+    } catch {
+      toast({ variant: "destructive", title: "Échec de la déconnexion" });
+      router.push('/fr');
+    }
   };
 
   const handleClassSelect = (classroom: ClassRoom) => {
@@ -117,9 +127,10 @@ export default function DashboardPage() {
               onClick={handleLogout}
               variant="outline"
               className="flex items-center gap-2"
+              disabled={isLoggingOut}
             >
-              <LogOut className="w-4 h-4" />
-              Se déconnecter
+              {isLoggingOut ? <Spinner size="sm" className="mr-2" /> : <LogOut className="w-4 h-4" />}
+              {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
             </Button>
           </div>
         </div>

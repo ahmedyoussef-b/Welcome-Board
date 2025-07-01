@@ -6,50 +6,22 @@ import { LogOut } from "lucide-react";
 import { useLogoutMutation } from "@/lib/redux/api/authApi";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
-import type { SerializedError } from '@reduxjs/toolkit';
-import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
-
-interface ApiErrorData {
-  message: string;
-}
-
-function isFetchBaseQueryError(error: unknown): error is FetchBaseQueryError {
-  return typeof error === 'object' && error != null && 'status' in error;
-}
-
-function isSerializedError(error: unknown): error is SerializedError {
-  return typeof error === 'object' && error != null && 'message' in error;
-}
 
 export function AppHeaderLogoutButton() {
-  const [logout, { isLoading: logoutLoading, isSuccess: logoutSuccess, isError: logoutIsError, error: logoutErrorData }] = useLogoutMutation();
+  const [logout, { isLoading: logoutLoading }] = useLogoutMutation();
   const router = useRouter();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (logoutSuccess) {
-      toast({ title: "Déconnexion réussie", description: "Vous avez été déconnecté avec succès." });
-      router.push('/fr'); // Redirect to home page after successful logout
-      router.refresh(); // Force refresh to ensure server session is cleared
-    }
-    if (logoutIsError) {
-      let errorMessage = "Impossible de vous déconnecter correctement.";
-      if (isFetchBaseQueryError(logoutErrorData)) {
-        const errorData = logoutErrorData.data as ApiErrorData;
-        errorMessage = errorData?.message || `Erreur ${logoutErrorData.status}`;
-      } else if (isSerializedError(logoutErrorData)) {
-        errorMessage = logoutErrorData.message || "Une erreur sérialisée s'est produite lors de la déconnexion.";
-      }
-      toast({ variant: "destructive", title: "Échec de la déconnexion", description: errorMessage });
-      // Still push to home page as a fallback, authSlice should clear user data
-      router.push('/fr');
-      router.refresh();
-    }
-  }, [logoutSuccess, logoutIsError, logoutErrorData, router, toast]);
-
   const handleLogout = async () => {
-    await logout();
+    try {
+      await logout().unwrap();
+      toast({ title: "Déconnexion réussie", description: "Vous avez été déconnecté avec succès." });
+      router.push('/fr');
+    } catch (err) {
+      toast({ variant: "destructive", title: "Échec de la déconnexion", description: "Une erreur est survenue lors de la déconnexion." });
+      // Fallback redirect
+      router.push('/fr');
+    }
   };
 
   return (
