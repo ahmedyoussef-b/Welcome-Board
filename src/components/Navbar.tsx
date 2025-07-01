@@ -11,15 +11,38 @@ import { selectCurrentUser } from "@/lib/redux/slices/authSlice";
 import { selectUnreadCount } from '@/lib/redux/slices/notificationSlice';
 import type { SafeUser } from "@/types";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 const Navbar = () => {
   const currentUser: SafeUser | null = useSelector(selectCurrentUser);
   const unreadNotifications = useSelector(selectUnreadCount);
   const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+
+  // Met à jour l'état de la recherche si le paramètre de l'URL change
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+  }, [searchParams]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const params = new URLSearchParams(searchParams.toString());
+    if (searchQuery) {
+      params.set('search', searchQuery);
+    } else {
+      params.delete('search');
+    }
+    // Réinitialise à la première page lors d'une nouvelle recherche
+    params.delete('page');
+    router.push(`${pathname}?${params.toString()}`);
+  };
 
   if (!mounted) {
     return (
@@ -44,14 +67,21 @@ const Navbar = () => {
   return (
     <div className="flex items-center justify-between p-4">
       {/* SEARCH BAR */}
-      <div className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-border px-2">
-        <Image src="/search.png" alt="recherche" width={14} height={14} />
+       <form
+        onSubmit={handleSearch}
+        className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-border px-2"
+      >
+        <button type="submit" aria-label="Lancer la recherche">
+          <Image src="/search.png" alt="recherche" width={14} height={14} />
+        </button>
         <input
           type="text"
-          placeholder="Rechercher..." // Texte français direct
+          placeholder="Rechercher..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="w-[200px] p-2 bg-transparent outline-none"
         />
-      </div>
+      </form>
       {/* ICONS AND USER */}
       <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
         <ThemeToggleButton />
