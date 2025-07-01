@@ -197,4 +197,14 @@ export const attendanceSchema = z.object({
 
 export type AttendanceSchema = z.infer<typeof attendanceSchema>;
 
-    
+export const profileUpdateSchema = z.object({
+  name: z.string().min(1, { message: "Le prénom est requis !" }).optional(),
+  surname: z.string().min(1, { message: "Le nom de famille est requis !" }).optional(),
+  username: z.string().min(3, "Le nom d'utilisateur doit faire au moins 3 caractères.").optional(),
+  email: z.string().email("Adresse e-mail invalide.").optional(),
+  password: z.string().min(8, "Le mot de passe doit faire au moins 8 caractères.").optional().or(z.literal('')), // Optional, but validated if present
+  phone: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  img: z.string().url().optional().nullable(),
+});
+export type ProfileUpdateSchema = z.infer<typeof profileUpdateSchema>;
