@@ -60,9 +60,10 @@ const AnnouncementListPage = async ({
         } else {
           // Single file view
           const file = fileInfo.files[0];
-          if (file.type === 'image') {
+          const fileType = file.type === 'raw' ? 'pdf' : file.type;
+          if (fileType === 'image') {
             content = (
-              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-xs relative aspect-video">
+              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
                 <Image src={file.url} alt={item.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" className="rounded-md object-cover hover:opacity-80 transition-opacity" />
               </Link>
             );
@@ -75,6 +76,22 @@ const AnnouncementListPage = async ({
             );
           }
         }
+      } else if (fileInfo.fileUrl && fileInfo.fileType) {
+          const fileType = fileInfo.fileType === 'raw' ? 'pdf' : fileInfo.fileType;
+          if (fileType === 'image') {
+            content = (
+              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
+                <Image src={fileInfo.fileUrl} alt={item.title} fill sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" className="rounded-md object-cover hover:opacity-80 transition-opacity" />
+              </Link>
+            );
+          } else {
+            content = (
+              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+                <FileText className="h-4 w-4"/>
+                Voir le document
+              </Link>
+            );
+          }
       } else {
         content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;
       }

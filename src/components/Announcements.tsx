@@ -86,7 +86,8 @@ const Announcements = async () => {
                 } else {
                   // Single file view
                   const file = fileInfo.files[0];
-                  if (file.type === 'image') {
+                  const fileType = file.type === 'raw' ? 'pdf' : file.type;
+                  if (fileType === 'image') {
                     content = (
                       <Link href={file.url} target="_blank" rel="noopener noreferrer" className="mt-2 block aspect-video w-full relative overflow-hidden rounded-md group-hover:opacity-90 transition-opacity">
                         <Image src={file.url} alt={announcement.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
@@ -101,6 +102,22 @@ const Announcements = async () => {
                     );
                   }
                 }
+              } else if (fileInfo.fileUrl && fileInfo.fileType) {
+                  const fileType = fileInfo.fileType === 'raw' ? 'pdf' : fileInfo.fileType;
+                  if (fileType === 'image') {
+                    content = (
+                      <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block aspect-video w-full relative overflow-hidden rounded-md group-hover:opacity-90 transition-opacity">
+                        <Image src={fileInfo.fileUrl} alt={announcement.title} fill sizes="(max-width: 768px) 100vw, 50vw" className="object-cover" />
+                      </Link>
+                    );
+                  } else {
+                     content = (
+                      <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline mt-1">
+                        <FileText className="h-4 w-4"/>
+                        <span>Voir le document</span>
+                      </Link>
+                    );
+                  }
               } else {
                 content = <p className="text-sm text-gray-600 mt-1 whitespace-pre-wrap break-words">{announcement.description}</p>;
               }
