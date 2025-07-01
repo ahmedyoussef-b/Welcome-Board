@@ -1,4 +1,3 @@
-
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
@@ -37,7 +36,8 @@ const mergeConsecutiveLessons = (lessons: Lesson[], wizardData: WizardData): Les
     // Sort lessons within each day
     for (const day of dayOrder) {
         if (lessonsByDay[day]) {
-            lessonsByDay[day]!.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
+            // Sort a copy to avoid mutating the original array passed into the function
+            lessonsByDay[day] = [...lessonsByDay[day]!].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
         }
     }
 
@@ -203,7 +203,7 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     };
     
     return (
-        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(`p-2 rounded-md border text-xs h-full min-h-[4rem] flex flex-col justify-center transition-colors relative group cursor-grab`, getSubjectColor(lesson.subjectId), isOver && 'ring-2 ring-primary', isDragging && 'opacity-50 shadow-lg')}>
+        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(`absolute inset-1 p-2 rounded-md border text-xs flex flex-col justify-center transition-colors group cursor-grab`, getSubjectColor(lesson.subjectId), isOver && 'ring-2 ring-primary', isDragging && 'opacity-50 shadow-lg')}>
              {isEditable && (
                 <>
                     <button
@@ -340,7 +340,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                     
                     if (cellData) {
                         return (
-                          <TableCell key={cellId} rowSpan={cellData.rowSpan} className="p-1 border align-top">
+                          <TableCell key={cellId} rowSpan={cellData.rowSpan} className="p-0 border align-top relative">
                              <DraggableLesson lesson={cellData.lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
                           </TableCell>
                         );
