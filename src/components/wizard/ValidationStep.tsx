@@ -10,6 +10,7 @@ import type { WizardData, LessonRequirement, TeacherConstraint, SubjectRequireme
 import { type Day, type Lesson } from '@prisma/client';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { saveSchedule, selectScheduleStatus, setInitialSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
+import { generateSchedule } from '@/lib/schedule-utils';
 
 type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
 
@@ -59,88 +60,6 @@ const ValidationStep: React.FC<{ wizardData: WizardData, onGenerationSuccess: ()
     setValidationResults(validateData());
   }, [wizardData]);
 
-  const generateSchedule = (): SchedulableLesson[] => {
-    const newSchedule: SchedulableLesson[] = [];
-    const schoolDays = wizardData.school.schoolDays.map(d => d.toUpperCase() as Day);
-    if (schoolDays.length === 0) return [];
-  
-    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
-    const labSubjectKeywords = ['physique', 'informatique', 'sciences', 'technique'];
-    const occupancy: { [key: string]: boolean } = {}; // Tracks teacher, class, and room occupancy
-  
-    wizardData.classes.forEach(classItem => {
-      wizardData.subjects.forEach(subject => {
-        const requirement = wizardData.lessonRequirements.find(r => r.classId === classItem.id && r.subjectId === subject.id);
-        const hoursToSchedule = requirement ? requirement.hours : (subject.weeklyHours || 0);
-  
-        const potentialTeachers = wizardData.teachers.filter(t => 
-          t.subjects.some(s => s.id === subject.id) &&
-          (t.classes.length === 0 || t.classes.some(c => c.id === classItem.id))
-        );
-  
-        if (potentialTeachers.length > 0) {
-          for (let i = 0; i < hoursToSchedule; i++) {
-            let placed = false;
-            const shuffledDays = [...schoolDays].sort(() => Math.random() - 0.5);
-            const shuffledTimes = [...timeSlots].sort(() => Math.random() - 0.5);
-  
-            for (const day of shuffledDays) {
-              for (const time of shuffledTimes) {
-                // Find an available teacher and check if the class is free
-                const availableTeacher = potentialTeachers.find(t => !occupancy[`teacher-${t.id}-${day}-${time}`]);
-                const isClassAvailable = !occupancy[`class-${classItem.id}-${day}-${time}`];
-  
-                if (availableTeacher && isClassAvailable) {
-                  // Determine the required room type based on subject
-                  const subjectNameLower = subject.name.toLowerCase();
-                  const isLabSubject = labSubjectKeywords.some(keyword => subjectNameLower.includes(keyword));
-                  
-                  let potentialRooms: typeof wizardData.rooms = [];
-                  if (isLabSubject) {
-                    const subjectKeyword = labSubjectKeywords.find(k => subjectNameLower.includes(k));
-                    potentialRooms = wizardData.rooms.filter(r => r.name.toLowerCase().includes('labo') && r.name.toLowerCase().includes(subjectKeyword!));
-                  } else {
-                    potentialRooms = wizardData.rooms.filter(r => !r.name.toLowerCase().includes('labo'));
-                  }
-  
-                  const availableRoom = potentialRooms.find(r => !occupancy[`room-${r.id}-${day}-${time}`]);
-                  
-                  // A room is only strictly necessary if rooms are configured.
-                  if (availableRoom || wizardData.rooms.length === 0) {
-                    const [hour, minute] = time.split(':').map(Number);
-  
-                    newSchedule.push({
-                      name: `${subject.name} - ${classItem.name}`,
-                      day: day,
-                      startTime: new Date(2000, 0, 1, hour, minute).toISOString(),
-                      endTime: new Date(2000, 0, 1, hour + 1, minute).toISOString(),
-                      subjectId: subject.id,
-                      teacherId: availableTeacher.id,
-                      classId: classItem.id,
-                      classroomId: availableRoom ? availableRoom.id : null,
-                    });
-  
-                    // Update all occupancies
-                    occupancy[`teacher-${availableTeacher.id}-${day}-${time}`] = true;
-                    occupancy[`class-${classItem.id}-${day}-${time}`] = true;
-                    if (availableRoom) {
-                      occupancy[`room-${availableRoom.id}-${day}-${time}`] = true;
-                    }
-                    placed = true;
-                  }
-                }
-                if (placed) break;
-              }
-              if (placed) break;
-            }
-          }
-        }
-      });
-    });
-    return newSchedule;
-  };
-
-
   const simulateGeneration = async () => {
     setIsGenerating(true);
     setGenerationProgress(0);
@@ -152,7 +71,7 @@ const ValidationStep: React.FC<{ wizardData: WizardData, onGenerationSuccess: ()
       await new Promise(resolve => setTimeout(resolve, 500));
       setGenerationProgress(((i + 1) / steps.length) * 100);
     }
-    const finalSchedule = generateSchedule();
+    const finalSchedule = generateSchedule(wizardData);
     dispatch(setInitialSchedule(finalSchedule as Lesson[]));
     setIsGenerating(false);
     setIsGenerated(true);

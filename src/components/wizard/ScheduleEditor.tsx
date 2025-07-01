@@ -14,6 +14,7 @@ import { ArrowLeft, Loader2, Save, Users, User } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { findConflictingConstraint } from '@/lib/schedule-utils';
 
 interface ScheduleEditorProps {
     wizardData: WizardData;
@@ -26,30 +27,6 @@ const formatUtcTime = (dateString: string | Date): string => {
     const date = new Date(dateString);
     const hours = String(date.getUTCHours()).padStart(2, '0');
     return `${hours}:00`;
-};
-
-const findConflictingConstraint = (
-    teacherId: string,
-    day: Day,
-    lessonStartTime: string, // 'HH:mm'
-    lessonEndTime: string, // 'HH:mm'
-    constraints: TeacherConstraint[]
-): TeacherConstraint | null => {
-    const lessonStartMinutes = parseInt(lessonStartTime.split(':')[0]) * 60 + parseInt(lessonStartTime.split(':')[1]);
-    const lessonEndMinutes = parseInt(lessonEndTime.split(':')[0]) * 60 + parseInt(lessonEndTime.split(':')[1]);
-
-    for (const constraint of constraints) {
-        if (constraint.teacherId === teacherId && constraint.day === day) {
-            const constraintStartMinutes = parseInt(constraint.startTime.split(':')[0]) * 60 + parseInt(constraint.startTime.split(':')[1]);
-            const constraintEndMinutes = parseInt(constraint.endTime.split(':')[0]) * 60 + parseInt(constraint.endTime.split(':')[1]);
-
-            // Check for overlap: (StartA < EndB) and (EndA > StartB)
-            if (lessonStartMinutes < constraintEndMinutes && lessonEndMinutes > constraintStartMinutes) {
-                return constraint; // Return the conflicting constraint
-            }
-        }
-    }
-    return null; // No conflicting constraints found
 };
 
 const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWizard }) => {
