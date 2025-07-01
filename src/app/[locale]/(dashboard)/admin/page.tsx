@@ -88,10 +88,11 @@ const AdminPage = async ({
         ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left & Center Column (Spans 2) */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
+      {/* Main Content - Using Flexbox for columns */}
+      <div className="flex flex-col lg:flex-row gap-6">
+
+        {/* Left & Center Column (main content) */}
+        <div className="lg:w-2/3 flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <UserCard type={AppRole.ADMIN} bgColorClass="bg-sky-500" />
             <UserCard type={AppRole.TEACHER} bgColorClass="bg-teal-500" />
@@ -113,11 +114,11 @@ const AdminPage = async ({
           </div>
         </div>
 
-        {/* Right Column (Spans 1) - Changed to flex-col */}
-        <div className="lg:col-span-1 flex flex-col gap-6">
+        {/* Right Column (sidebar-like content) */}
+        <div className="lg:w-1/3 flex flex-col gap-6">
           <EventCalendarContainer date={(await searchParams).date}/>
-          {/* Wrapper for announcements that will grow and constrain its content */}
-          <div className="flex-grow min-h-0">
+          {/* Wrapper for announcements that will fill remaining space and scroll */}
+          <div className="flex-1 min-h-0">
             <Announcements />
           </div>
         </div>
