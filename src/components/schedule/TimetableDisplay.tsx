@@ -1,3 +1,4 @@
+
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
@@ -198,11 +199,11 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     const subjectColors = ['bg-primary/10 border-primary/20', 'bg-secondary/10 border-secondary/20', 'bg-accent/10 border-accent/20', 'bg-chart-1/20 border-chart-1/30', 'bg-chart-2/20 border-chart-2/30', 'bg-chart-3/20 border-chart-3/30', 'bg-chart-4/20 border-chart-4/30', 'bg-chart-5/20 border-chart-5/30'];
     const getSubjectColor = (subjectId: number) => {
       const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
-      return subjectColors[index % subjectColors.length];
+      return subjectColors[index % subjectColors.length] || 'bg-muted';
     };
     
     return (
-        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(`p-2 rounded-md border text-xs h-full flex flex-col justify-center transition-colors relative group cursor-grab`, getSubjectColor(lesson.subjectId), isOver && 'ring-2 ring-primary', isDragging && 'opacity-50 shadow-lg')}>
+        <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn(`p-2 rounded-md border text-xs h-full min-h-[4rem] flex flex-col justify-center transition-colors relative group cursor-grab`, getSubjectColor(lesson.subjectId), isOver && 'ring-2 ring-primary', isDragging && 'opacity-50 shadow-lg')}>
              {isEditable && (
                 <>
                     <button
