@@ -67,24 +67,19 @@ const Announcements = async () => {
               
               if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
                 if (fileInfo.files.length > 1) {
-                  // Gallery view
+                  // Gallery view - vertical stack
                   content = (
-                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                      {fileInfo.files.slice(0, 4).map((file: any, idx: number) => (
-                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50 aspect-square">
+                    <div className="mt-2 flex flex-col gap-2">
+                      {fileInfo.files.map((file: any, idx: number) => (
+                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-black/5">
                            <Image 
                               src={file.url} 
                               alt={`${announcement.title} - image ${idx + 1}`} 
-                              fill
-                              sizes="150px" 
-                              style={{objectFit: 'contain'}}
-                              className="group-hover:scale-105 transition-transform" 
+                              width={800}
+                              height={600}
+                              style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+                              className="rounded-md group-hover:opacity-90 transition-opacity" 
                             />
-                          {idx === 3 && fileInfo.files.length > 4 && (
-                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-lg">
-                              +{fileInfo.files.length - 4}
-                            </div>
-                          )}
                         </Link>
                       ))}
                     </div>
