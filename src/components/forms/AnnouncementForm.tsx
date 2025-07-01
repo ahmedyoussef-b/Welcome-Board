@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,7 +13,8 @@ import type { Announcement, Class } from "@/types/index";
 import { CldUploadWidget } from "next-cloudinary";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, FileText, Image as ImageIcon, Trash2, Loader2 } from "lucide-react";
+import { UploadCloud, FileText, Image as ImageIcon, Trash2, Loader2, Plus, Send } from "lucide-react";
+import NextImage from "next/image"; // To avoid conflict with lucide-react Image icon
 
 // Define specific types for related data
 type RelatedClass = Pick<Class, 'id' | 'name'>;
@@ -24,6 +24,7 @@ type UpdateAnnouncementData = Announcement;
 interface CloudinaryUploadWidgetInfo {
   secure_url: string;
   resource_type: string;
+  original_filename?: string;
 }
 
 interface CloudinaryUploadWidgetResults {
@@ -42,7 +43,7 @@ const AnnouncementForm = ({
   setOpen: Dispatch<SetStateAction<boolean>>;
   relatedData?: { classes: RelatedClass[] };
 }) => {
-  const [uploadedFile, setUploadedFile] = useState<{ url: string; type: string } | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<{ url: string; type: string }[]>([]);
 
   const {
     register,
@@ -58,7 +59,7 @@ const AnnouncementForm = ({
       classId: data.classId,
     } : {
       title: "",
-      description: "", // Initially empty, will be populated by upload
+      description: "",
       date: undefined,
       classId: null,
     },
@@ -69,21 +70,30 @@ const AnnouncementForm = ({
     if (type === 'update' && data?.description) {
       try {
         const fileInfo = JSON.parse(data.description);
-        if (fileInfo.fileUrl && fileInfo.fileType) {
-          setUploadedFile({ url: fileInfo.fileUrl, type: fileInfo.fileType });
-          setValue('description', data.description, { shouldValidate: true });
+        // Handle both new gallery format and old single file format
+        if (fileInfo.files && Array.isArray(fileInfo.files)) {
+          setUploadedFiles(fileInfo.files);
+        } else if (fileInfo.fileUrl && fileInfo.fileType) {
+          setUploadedFiles([{ url: fileInfo.fileUrl, type: fileInfo.fileType }]);
         }
+        setValue('description', data.description, { shouldValidate: true });
       } catch (e) {
-        // This is a legacy text announcement. This form can't edit it.
-        // We could show a read-only view of the text, but for now we'll just ignore it.
+        // Legacy text announcement. We can't edit it with this form.
       }
     }
   }, [data, type, setValue]);
 
+  // Sync uploadedFiles state with the form's description field
+  useEffect(() => {
+    const descriptionValue = uploadedFiles.length > 0
+      ? JSON.stringify({ isPublic: true, files: uploadedFiles }) // Using the gallery format
+      : "";
+    setValue("description", descriptionValue, { shouldValidate: true });
+  }, [uploadedFiles, setValue]);
+
   const router = useRouter();
   const [createAnnouncement, { isLoading: isCreating }] = useCreateAnnouncementMutation();
   const [updateAnnouncement, { isLoading: isUpdating }] = useUpdateAnnouncementMutation();
-
   const isLoading = isCreating || isUpdating;
 
   const onSubmit = handleSubmit(async (formData: AnnouncementSchema) => {
@@ -96,6 +106,7 @@ const AnnouncementForm = ({
       toast({ title: `Annonce ${type === "create" ? "créée" : "mise à jour"} avec succès !` });
       setOpen(false);
       reset();
+      setUploadedFiles([]);
       router.refresh();
     } catch (err: any) {
       toast({
@@ -111,17 +122,16 @@ const AnnouncementForm = ({
   const handleUploadSuccess = (result: CloudinaryUploadWidgetResults) => {
     if (result.event === "success" && typeof result.info === 'object' && 'secure_url' in result.info) {
       const info = result.info as CloudinaryUploadWidgetInfo;
-      const file = { url: info.secure_url, type: info.resource_type };
-      setUploadedFile(file);
-      const descriptionValue = JSON.stringify({ fileUrl: file.url, fileType: file.type });
-      setValue("description", descriptionValue, { shouldValidate: true });
+      const fileType = info.resource_type === 'raw' ? 'pdf' : info.resource_type;
+      const file = { url: info.secure_url, type: fileType };
+      setUploadedFiles(prev => [...prev, file]);
+      toast({ title: "Fichier ajouté", description: info.original_filename || "Le fichier a été ajouté à la galerie." });
     }
   };
 
-  const removeUploadedFile = () => {
-    setUploadedFile(null);
-    setValue("description", "", { shouldValidate: true });
-  }
+  const removeUploadedFile = (indexToRemove: number) => {
+    setUploadedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
 
   return (
     <form className="flex flex-col gap-8" onSubmit={onSubmit}>
@@ -139,33 +149,64 @@ const AnnouncementForm = ({
         />
         <input type="hidden" {...register("description")} />
         
-        <div className="space-y-2">
-          <Label>Fichier de l'annonce</Label>
-          {uploadedFile ? (
-            <div className="p-4 border rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                {uploadedFile.type === 'image' ? <ImageIcon className="h-6 w-6 text-primary" /> : <FileText className="h-6 w-6 text-primary" />}
-                <a href={uploadedFile.url} target="_blank" rel="noopener noreferrer" className="text-sm truncate hover:underline">{uploadedFile.url}</a>
-              </div>
-              <Button type="button" variant="ghost" size="icon" onClick={removeUploadedFile} disabled={isLoading}>
-                <Trash2 className="h-4 w-4 text-destructive"/>
-              </Button>
+        <div>
+          <Label>Fichiers</Label>
+          {uploadedFiles.length > 0 ? (
+            <div className="mt-2 p-4 border rounded-lg grid grid-cols-2 md:grid-cols-4 gap-4">
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="relative group">
+                  <div className="aspect-square w-full bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                     {file.type === 'image' ? 
+                      <NextImage src={file.url} alt={`Preview ${index}`} fill sizes="100px" className="object-cover" /> : 
+                      <FileText className="h-10 w-10 text-muted-foreground" />}
+                  </div>
+                  <p className="text-xs truncate mt-1 text-muted-foreground">{file.url.split('/').pop()}</p>
+                  <Button 
+                    type="button" 
+                    variant="destructive" 
+                    size="icon" 
+                    className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeUploadedFile(index)} 
+                    disabled={isLoading}
+                  >
+                    <Trash2 className="h-3 w-3"/>
+                  </Button>
+                </div>
+              ))}
+              <CldUploadWidget
+                  uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "ml_default"}
+                  options={{ multiple: true }}
+                  onSuccess={handleUploadSuccess}
+              >
+                  {({ open }) => (
+                       <button 
+                          type="button" 
+                          onClick={() => open()} 
+                          className="aspect-square w-full flex flex-col items-center justify-center p-4 border-2 border-dashed rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                          disabled={isLoading}
+                      >
+                          <Plus className="h-8 w-8 text-muted-foreground"/>
+                          <span className="text-xs text-center mt-1">Ajouter plus</span>
+                      </button>
+                  )}
+              </CldUploadWidget>
             </div>
           ) : (
             <CldUploadWidget
               uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET || "ml_default"}
+              options={{ multiple: true }}
               onSuccess={handleUploadSuccess}
             >
               {({ open }) => (
                 <button 
                   type="button" 
                   onClick={() => open()} 
-                  className="w-full flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
+                  className="mt-1 w-full flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
                   disabled={isLoading}
                 >
                   <UploadCloud className="h-10 w-10 text-muted-foreground mb-2"/>
                   <span className="font-semibold">Cliquez pour téléverser</span>
-                  <span className="text-xs text-muted-foreground">PDF, PNG, JPG, etc.</span>
+                  <span className="text-xs text-muted-foreground">Téléversez un ou plusieurs fichiers (PDF, images...)</span>
                 </button>
               )}
             </CldUploadWidget>
@@ -199,8 +240,8 @@ const AnnouncementForm = ({
         </div>
       </div>
       
-      <Button type="submit" className="w-full" disabled={isLoading || (!uploadedFile && type === 'create')}>
-        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+      <Button type="submit" className="w-full" disabled={isLoading || uploadedFiles.length === 0}>
+        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
         {isLoading ? "Publication..." : (type === "create" ? "Publier l'Annonce" : "Mettre à jour l'Annonce")}
       </Button>
     </form>
