@@ -1,3 +1,4 @@
+
 // src/app/api/teachers/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
@@ -47,7 +48,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     
     const {
       username, email, password, name, surname, phone, address, img,
-      bloodType, birthday, sex, subjects, classes, // Ajout de classes
+      bloodType, birthday, sex, subjects, classes,
     } = body;
 
     const teacherToUpdate = await prisma.teacher.findUnique({ where: { id }, select: { userId: true } });
@@ -114,7 +115,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const result = await tx.teacher.update({
             where: { id },
             data: teacherData,
-            include: { user: true, subjects: true, classes: true }, // Inclure les classes
+            include: { user: true, subjects: true, classes: true },
         });
         
         return result;

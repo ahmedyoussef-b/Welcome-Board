@@ -11,6 +11,7 @@ import { useAppDispatch } from '@/hooks/redux-hooks';
 import { addProfesseur, deleteProfesseur } from '@/lib/redux/features/teachers/teachersSlice';
 import type { TeacherWithDetails, CreateTeacherPayload, Subject, ClassWithGrade } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import FormModal from '@/components/FormModal';
 
 interface TeachersFormProps {
   data: TeacherWithDetails[];
@@ -189,7 +190,18 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data, allSubjects, allClass
                       </div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => handleDeleteTeacher(teacher.id)} className="text-destructive hover:text-destructive/90"><Trash2 size={16} /></Button>
+                  <div className="flex items-center space-x-1">
+                    <FormModal 
+                        table="teacher"
+                        type="update"
+                        data={teacher}
+                        relatedData={{
+                            subjects: allSubjects,
+                            classes: allClasses,
+                        }}
+                    />
+                    <Button variant="ghost" size="sm" onClick={() => handleDeleteTeacher(teacher.id)} className="text-destructive hover:text-destructive/90"><Trash2 size={16} /></Button>
+                  </div>
                 </div>
               </Card>
             ))}

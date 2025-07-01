@@ -1,3 +1,4 @@
+
 //src/components/FormModal.tsx
 "use client";
 
@@ -56,6 +57,7 @@ const forms: {
       initialData={data}
       setOpen={setOpen}
       availableSubjects={relatedData?.subjects || []}
+      allClasses={relatedData?.classes || []}
     />),
   student: (setOpen, type, data, relatedData) => <StudentForm type={type} data={data} setOpen={setOpen} relatedData={relatedData} />,
   exam: (setOpen, type, data, relatedData) => <ExamForm type={type} data={data} setOpen={setOpen} relatedData={relatedData} />,
