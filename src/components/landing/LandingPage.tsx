@@ -56,11 +56,8 @@ export default function LandingPage() {
                         <KeyRound className="w-12 h-12 text-primary" />
                     </div>
                     <h1 className="text-5xl md:text-6xl font-bold font-headline text-white">
-                        Bienvenue sur <span className="text-primary">SchooLama</span>
+                        Bienvenue à <span className="text-primary">College Riadh 5</span>
                     </h1>
-                    <p className="mt-4 text-lg text-neutral-200 max-w-2xl mx-auto">
-                        Votre plateforme tout-en-un pour une gestion scolaire simplifiée et une expérience d'apprentissage interactive.
-                    </p>
                 </div>
 
                 <div className="mb-16 w-full h-80">
