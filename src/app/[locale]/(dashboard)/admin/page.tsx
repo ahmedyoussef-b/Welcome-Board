@@ -113,10 +113,11 @@ const AdminPage = async ({
           </div>
         </div>
 
-        {/* Right Column (Spans 1) */}
-        <div className="lg:col-span-1 grid grid-rows-[auto_1fr] gap-6">
+        {/* Right Column (Spans 1) - Changed to flex-col */}
+        <div className="lg:col-span-1 flex flex-col gap-6">
           <EventCalendarContainer date={(await searchParams).date}/>
-          <div className="min-h-0">
+          {/* Wrapper for announcements that will grow and constrain its content */}
+          <div className="flex-grow min-h-0">
             <Announcements />
           </div>
         </div>
