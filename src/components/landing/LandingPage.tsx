@@ -58,17 +58,20 @@ export default function LandingPage() {
                     </p>
                 </div>
 
-                <div className="mb-16">
+                <div className="mb-16 w-full h-80">
                     <h2 className="text-3xl font-bold text-white mb-8">Découvrez les rôles</h2>
-                    <div className="flex flex-wrap items-center justify-center gap-8">
-                        {roles.map((role) => (
-                            <RoleCard
-                                key={role.title}
-                                title={role.title}
-                                description={role.description}
-                                icon={role.icon}
-                            />
-                        ))}
+                    <div className="scene">
+                        <div className="carousel">
+                            {roles.map((role, index) => (
+                                <div key={index} className="carousel__cell">
+                                    <RoleCard
+                                        title={role.title}
+                                        description={role.description}
+                                        icon={role.icon}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

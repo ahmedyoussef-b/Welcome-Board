@@ -186,12 +186,50 @@
     transition: all 0.5s;
     transform: rotateY(-110deg);
   }
+
+  /* Carousel Styles */
+  .scene {
+    width: 256px; /* Corresponds to w-64 */
+    height: 320px; /* Corresponds to h-80 */
+    position: relative;
+    perspective: 1000px;
+    margin: auto;
+  }
+
+  .carousel {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    transform-style: preserve-3d;
+    animation: rotate 20s infinite linear;
+  }
+
+  .scene:hover .carousel {
+    animation-play-state: paused;
+  }
+
+  .carousel__cell {
+    position: absolute;
+    width: 256px; /* w-64 */
+    height: 320px; /* h-80 */
+  }
+  
+  /* Arrange 4 cards in a circle */
+  .carousel__cell:nth-child(1) { transform: rotateY(  0deg) translateZ(288px); }
+  .carousel__cell:nth-child(2) { transform: rotateY( 90deg) translateZ(288px); }
+  .carousel__cell:nth-child(3) { transform: rotateY(180deg) translateZ(288px); }
+  .carousel__cell:nth-child(4) { transform: rotateY(270deg) translateZ(288px); }
 }
 
 @keyframes glowing {
     0% { background-position: 0 0; }
     50% { background-position: 400% 0; }
     100% { background-position: 0 0; }
+}
+
+@keyframes rotate {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-360deg); }
 }
 
 @media print {
