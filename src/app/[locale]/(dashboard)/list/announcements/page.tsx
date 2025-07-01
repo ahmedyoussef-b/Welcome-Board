@@ -47,9 +47,9 @@ const AnnouncementListPage = async ({
       
       if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
         if (fileInfo.files.length > 1) {
-          // Gallery view - Vertical Scroll
+          // Gallery view - Vertical Stack
           content = (
-            <div className="h-96 max-w-lg overflow-y-auto space-y-2 p-1 pr-2 rounded-lg border bg-background/50">
+            <div className="max-w-lg space-y-2">
                 {fileInfo.files.map((file: any, index: number) => (
                     <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative aspect-[4/3] rounded-md overflow-hidden group bg-muted/50">
                         <Image
