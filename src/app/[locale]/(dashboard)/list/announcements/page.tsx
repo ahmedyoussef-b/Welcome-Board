@@ -30,7 +30,7 @@ const AnnouncementListPage = async ({
   
   const baseColumns: ColumnConfig[] = [
     { header: "Titre", accessor: "title" },
-    { header: "Contenu", accessor: "content" },
+    { header: "Contenu", accessor: "content", className: "w-2/5" },
     { header: "Classe", accessor: "class" },
     { header: "Date", accessor: "date", className: "hidden md:table-cell" },
   ];
@@ -47,12 +47,12 @@ const AnnouncementListPage = async ({
       if (fileInfo.fileUrl) {
         if (fileInfo.fileType === 'image') {
           content = (
-            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-sm relative aspect-video">
+            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative aspect-video">
               <Image 
                 src={fileInfo.fileUrl} 
                 alt={item.title} 
                 fill
-                sizes="(max-width: 640px) 100vw, 384px"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 className="rounded-md object-cover hover:opacity-80 transition-opacity" 
               />
             </Link>
@@ -66,10 +66,10 @@ const AnnouncementListPage = async ({
           );
         }
       } else {
-        content = <p className="text-muted-foreground whitespace-pre-wrap">{item.description}</p>;
+        content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;
       }
     } catch (e) {
-      content = <p className="text-muted-foreground whitespace-pre-wrap">{item.description}</p>;
+      content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;
     }
 
     return (
