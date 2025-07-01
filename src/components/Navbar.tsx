@@ -23,15 +23,15 @@ const Navbar = () => {
       <div className="flex items-center justify-between p-4 animate-pulse">
         <div className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 px-2 h-10 w-64 bg-muted">
         </div>
-        <div className="flex items-center gap-2 justify-end w-full">
+        <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
           <div className="bg-muted rounded-full w-8 h-8"></div>
           <div className="bg-muted rounded-full w-8 h-8"></div>
-          {/* Placeholder pour LanguageSwitcher enlevé */}
-           <div className="flex flex-col">
-            <div className="h-3 w-20 bg-muted rounded mb-1"></div>
-            <div className="h-2 w-12 bg-muted rounded self-end"></div>
+          <div className="flex flex-col text-right">
+            <div className="h-4 w-24 bg-muted rounded mb-1"></div>
+            <div className="h-3 w-16 bg-muted rounded"></div>
           </div>
-          <div className="h-9 w-9 bg-muted rounded-full"></div>
+          <div className="h-10 w-10 bg-muted rounded-full"></div>
+          <div className="h-9 w-9 md:h-9 md:w-24 bg-muted rounded-full md:rounded-md"></div>
         </div>
       </div>
     );
@@ -63,12 +63,19 @@ const Navbar = () => {
         </div>
         {currentUser ? (
           <>
-            <div className="flex flex-col">
-              <span className="text-xs leading-3 font-medium">{currentUser.name || currentUser.email}</span>
-              <span className="text-[10px] text-muted-foreground text-right capitalize">
+            <div className="flex flex-col text-right">
+              <span className="text-sm font-semibold">{currentUser.name || currentUser.email}</span>
+              <span className="text-xs text-muted-foreground capitalize">
                 {currentUser.role.toLowerCase()}
               </span>
             </div>
+             <Image
+                src={currentUser.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
+                alt="Photo de profil"
+                width={40}
+                height={40}
+                className="rounded-full"
+              />
             <AppHeaderLogoutButton /> 
           </>
         ) : (
