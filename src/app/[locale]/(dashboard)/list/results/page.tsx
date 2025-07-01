@@ -1,4 +1,3 @@
-
 // src/app/[locale]/(dashboard)/list/results/page.tsx
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
@@ -154,7 +153,7 @@ const ResultListPage = async ({
     }
   }
 
-  const [dataRes, count] = await prisma.$transaction([
+  const [allDataRes, count] = await prisma.$transaction([
     prisma.result.findMany({
       where: query,
       include: {
@@ -190,16 +189,19 @@ const ResultListPage = async ({
           }
         }
       },
-      orderBy: [ 
-        { student: { surname: 'asc' } },
-        { student: { name: 'asc' } },
-        { score: 'desc'}
-      ],
-      take: ITEM_PER_PAGE,
-      skip: ITEM_PER_PAGE * (p - 1),
     }),
     prisma.result.count({ where: query }),
   ]);
+
+  // Sort all results by date descending
+  (allDataRes as ResultWithDetails[]).sort((a, b) => {
+    const dateA = a.exam ? new Date(a.exam.startTime) : new Date(a.assignment!.dueDate);
+    const dateB = b.exam ? new Date(b.exam.startTime) : new Date(b.assignment!.dueDate);
+    return dateB.getTime() - dateA.getTime();
+  });
+
+  // Manually paginate the sorted results
+  const dataRes = allDataRes.slice(ITEM_PER_PAGE * (p - 1), ITEM_PER_PAGE * p);
 
   const data: ResultListDisplayItem[] = (dataRes as ResultWithDetails[]).map((item) => {
     const isExam = !!item.exam;
