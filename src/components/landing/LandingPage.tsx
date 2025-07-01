@@ -43,7 +43,7 @@ export default function LandingPage() {
             style={{ backgroundImage: "url('/images/riadh5.jpg')" }}
         >
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/60 z-0" />
+            <div className="absolute inset-0 bg-black/50 z-0" />
             
             <main className="relative z-10 flex flex-1 flex-col items-center justify-center text-center text-white">
                 <div className="mb-12">
