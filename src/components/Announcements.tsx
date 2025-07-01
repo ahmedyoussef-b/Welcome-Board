@@ -1,9 +1,10 @@
-
 import prisma from "@/lib/prisma";
 import { getServerSession } from "@/lib/auth-utils";
 import { Role, type AnnouncementWithClass } from "@/types/index"; 
 import type { Prisma } from "@prisma/client";
 import Link from 'next/link';
+import Image from "next/image";
+import { FileText } from "lucide-react";
 
 const Announcements = async () => {
   const session = await getServerSession();
@@ -64,11 +65,26 @@ const Announcements = async () => {
            try {
              const fileInfo = JSON.parse(announcement.description || '{}');
              if (fileInfo.fileUrl) {
-               content = (
-                 <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline mt-1 block">
-                   Voir l'annonce
-                 </Link>
-               );
+                if (fileInfo.fileType === 'image') {
+                    content = (
+                        <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="mt-2 block aspect-video w-full relative overflow-hidden rounded-md group-hover:opacity-90 transition-opacity">
+                            <Image 
+                                src={fileInfo.fileUrl} 
+                                alt={announcement.title} 
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                className="object-cover"
+                            />
+                        </Link>
+                    );
+                } else {
+                    content = (
+                        <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline mt-1">
+                            <FileText className="h-4 w-4"/>
+                            <span>Voir le document</span>
+                        </Link>
+                    );
+                }
              } else {
                content = <p className="text-sm text-gray-600 mt-1">{announcement.description}</p>;
              }
@@ -77,7 +93,7 @@ const Announcements = async () => {
            }
 
           return (
-            <div className={`${cardColor} rounded-md p-4`} key={announcement.id}>
+            <div className={`${cardColor} rounded-md p-4 group`} key={announcement.id}>
               <div className="flex items-center justify-between">
                 <h2 className="font-medium">{announcement.title}</h2>
                 <span className="text-xs text-gray-500 bg-background rounded-md px-1 py-1">

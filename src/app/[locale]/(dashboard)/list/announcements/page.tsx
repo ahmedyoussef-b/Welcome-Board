@@ -1,4 +1,3 @@
-
 // src/app/[locale]/(dashboard)/list/announcements/page.tsx
 import FormContainer from "@/components/FormContainer";
 import Pagination from "@/components/Pagination";
@@ -11,7 +10,7 @@ import { getServerSession } from "@/lib/auth-utils";
 import { type AnnouncementWithClass } from "@/types/index"; 
 import { Prisma, Role } from "@prisma/client"; 
 import prisma from "@/lib/prisma";
-import { FileText, Image as ImageIcon } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
 interface ColumnConfig {
   header: string;
@@ -46,12 +45,26 @@ const AnnouncementListPage = async ({
     try {
       const fileInfo = JSON.parse(item.description || '{}');
       if (fileInfo.fileUrl) {
-        content = (
-          <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-            {fileInfo.fileType === 'image' ? <ImageIcon className="h-4 w-4"/> : <FileText className="h-4 w-4"/>}
-            Voir le Fichier
-          </Link>
-        );
+        if (fileInfo.fileType === 'image') {
+          content = (
+            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-24 h-16 relative">
+              <Image 
+                src={fileInfo.fileUrl} 
+                alt={item.title} 
+                fill
+                sizes="100px"
+                className="rounded-md object-cover hover:opacity-80 transition-opacity" 
+              />
+            </Link>
+          );
+        } else {
+          content = (
+            <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
+              <FileText className="h-4 w-4"/>
+              Voir le document
+            </Link>
+          );
+        }
       } else {
         content = <span className="text-muted-foreground line-clamp-2">{item.description}</span>;
       }
