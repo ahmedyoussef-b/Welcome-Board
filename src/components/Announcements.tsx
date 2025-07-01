@@ -69,7 +69,7 @@ const Announcements = async () => {
                 if (fileInfo.files.length > 1) {
                   // Gallery view - VERTICAL scroll
                   content = (
-                    <div className="mt-2 h-96 overflow-y-auto space-y-2 p-1 pr-2 rounded-lg border bg-background/50">
+                    <div className="mt-2 space-y-2">
                         {fileInfo.files.map((file: any, idx: number) => (
                           <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative aspect-[4/3] rounded-md overflow-hidden group bg-muted/50">
                                 <Image
