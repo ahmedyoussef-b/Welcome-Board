@@ -4,9 +4,9 @@
 import React, { useMemo, useState } from 'react';
 import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent, type DragStartEvent, type DragCancelEvent } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot, selectSchedule, extendLesson } from '@/lib/redux/features/schedule/scheduleSlice';
+import { updateLessonSubject, addLesson, removeLesson, saveSchedule, updateLessonSlot, extendLesson, selectSchedule, selectScheduleStatus } from '@/lib/redux/features/schedule/scheduleSlice';
 import { toast } from '@/hooks/use-toast';
-import type { WizardData, Lesson, Subject, Day, TeacherWithDetails } from '@/types';
+import type { WizardData, Lesson, Subject, Day, TeacherWithDetails, TeacherConstraint } from '@/types';
 import { ScheduleSidebar } from '../schedule/ScheduleSidebar';
 import TimetableDisplay from '../schedule/TimetableDisplay';
 import { Button } from '../ui/button';
@@ -28,6 +28,29 @@ const formatUtcTime = (dateString: string | Date): string => {
     return `${hours}:00`;
 };
 
+const findConflictingConstraint = (
+    teacherId: string,
+    day: Day,
+    lessonStartTime: string, // 'HH:mm'
+    lessonEndTime: string, // 'HH:mm'
+    constraints: TeacherConstraint[]
+): TeacherConstraint | null => {
+    const lessonStartMinutes = parseInt(lessonStartTime.split(':')[0]) * 60 + parseInt(lessonStartTime.split(':')[1]);
+    const lessonEndMinutes = parseInt(lessonEndTime.split(':')[0]) * 60 + parseInt(lessonEndTime.split(':')[1]);
+
+    for (const constraint of constraints) {
+        if (constraint.teacherId === teacherId && constraint.day === day) {
+            const constraintStartMinutes = parseInt(constraint.startTime.split(':')[0]) * 60 + parseInt(constraint.startTime.split(':')[1]);
+            const constraintEndMinutes = parseInt(constraint.endTime.split(':')[0]) * 60 + parseInt(constraint.endTime.split(':')[1]);
+
+            // Check for overlap: (StartA < EndB) and (EndA > StartB)
+            if (lessonStartMinutes < constraintEndMinutes && lessonEndMinutes > constraintStartMinutes) {
+                return constraint; // Return the conflicting constraint
+            }
+        }
+    }
+    return null; // No conflicting constraints found
+};
 
 const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWizard }) => {
     const dispatch = useAppDispatch();
@@ -52,7 +75,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
     const [activeDragColor, setActiveDragColor] = useState<string | null>(null);
 
     const schedule = useAppSelector(selectSchedule);
-    const scheduleStatus = useAppSelector(state => state.schedule.status);
+    const scheduleStatus = useAppSelector(selectScheduleStatus);
     
     const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
 
@@ -118,6 +141,29 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                     toast({ variant: "destructive", title: "Conflit d'horaire", description: `La classe a déjà un cours sur ce créneau.` });
                     return;
                 }
+                
+                const lessonStartTimeStr = newTime;
+                const [hour, minute] = newTime.split(':').map(Number);
+                const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
+                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+
+                const constraint = findConflictingConstraint(
+                    lessonToMove.teacherId,
+                    newDay as Day,
+                    lessonStartTimeStr,
+                    lessonEndTimeStr,
+                    wizardData.teacherConstraints || []
+                );
+
+                if (constraint) {
+                    const teacher = wizardData.teachers.find(t => t.id === lessonToMove.teacherId);
+                    toast({
+                        variant: "destructive",
+                        title: "Conflit de contrainte",
+                        description: `Impossible de déplacer le cours. ${teacher?.name} ${teacher?.surname} est indisponible de ${constraint.startTime} à ${constraint.endTime} ce jour-là.`
+                    });
+                    return;
+                }
 
                 dispatch(updateLessonSlot({ lessonId, newDay: newDay as Day, newTime }));
                 toast({ title: "Cours déplacé", description: `Le cours a été déplacé avec succès.` });
@@ -151,7 +197,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 const [hour, minute] = time.split(':').map(Number);
                 const currentSlotStartTime = new Date(Date.UTC(2000, 0, 1, hour, minute));
 
-                // --- EXTEND LOGIC ---
                 if (viewMode === 'class' && selectedClassId) {
                     const precedingLesson = schedule.find(l =>
                         l.classId === parseInt(selectedClassId, 10) &&
@@ -172,7 +217,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                         }
                     }
                 }
-                // --- END EXTEND LOGIC ---
                 
                 if (viewMode === 'teacher') {
                     toast({
@@ -226,12 +270,33 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 }
                 
                 const teacher = potentialTeachers[0];
+                
+                const lessonStartTimeStr = time;
+                const lessonEndTimeDate = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
+                const lessonEndTimeStr = `${String(lessonEndTimeDate.getUTCHours()).padStart(2, '0')}:${String(lessonEndTimeDate.getUTCMinutes()).padStart(2, '0')}`;
+
+                const constraint = findConflictingConstraint(
+                    teacher.id,
+                    day as Day,
+                    lessonStartTimeStr,
+                    lessonEndTimeStr,
+                    wizardData.teacherConstraints || []
+                );
+
+                if (constraint) {
+                    toast({
+                        variant: "destructive",
+                        title: "Conflit de contrainte",
+                        description: `Impossible d'ajouter le cours. ${teacher.name} ${teacher.surname} est indisponible de ${constraint.startTime} à ${constraint.endTime} ce jour-là.`
+                    });
+                    return;
+                }
 
                 const newLesson: SchedulableLesson = {
                     name: `${subject.name} - ${wizardData.classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
                     day: day as Day,
                     startTime: new Date(Date.UTC(2000, 0, 1, hour, minute)).toISOString(),
-                    endTime: new Date(Date.UTC(2000, 0, 1, hour + 1, minute)).toISOString(),
+                    endTime: new Date(Date.UTC(2000, 0, 1, hour, minute + wizardData.school.sessionDuration)).toISOString(),
                     subjectId: subjectId,
                     classId: parseInt(selectedClassId, 10),
                     teacherId: teacher.id,
