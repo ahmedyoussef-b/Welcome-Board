@@ -1,4 +1,4 @@
-
+// src/app/[locale]/(dashboard)/list/chatroom/student/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -37,7 +37,6 @@ export default function StudentChatroomPage() {
 
   const handleLogout = () => {
     logout();
-    router.replace('/fr');
   };
 
   const handleJoinSession = (invitation: Notification & { actionUrl: string }) => {
