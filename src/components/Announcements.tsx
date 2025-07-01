@@ -51,7 +51,7 @@ const Announcements = async () => {
   }
 
   return (
-    <div className="bg-muted p-4 rounded-md h-full flex flex-col">
+    <div className="bg-muted p-4 rounded-md h-[600px] flex flex-col">
       <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold">Annonces</h1>
       </div>
@@ -67,7 +67,7 @@ const Announcements = async () => {
               
               if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
                 if (fileInfo.files.length > 1) {
-                  // Gallery view - VERTICAL scroll
+                  // Gallery view - VERTICAL stack, main container will scroll
                   content = (
                     <div className="mt-2 space-y-2">
                         {fileInfo.files.map((file: any, idx: number) => (
