@@ -88,9 +88,8 @@ const AdminPage = async ({
         ))}
       </div>
 
-      {/* Dashboard Widgets */}
+      {/* Top Dashboard Widgets */}
       <div className="flex gap-4 flex-col md:flex-row">
-        {/* LEFT */}
         <div className="w-full lg:w-2/3 flex flex-col gap-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <UserCard type={AppRole.ADMIN} bgColorClass="bg-sky-500" />
@@ -106,13 +105,18 @@ const AdminPage = async ({
               <AttendanceChartContainer />
             </div>
           </div>
-          <div className="w-full h-[500px]">
-            <FinanceChart />
-          </div>
         </div>
-        {/* RIGHT */}
-        <div className="w-full lg:w-1/3 flex flex-col gap-8">
+        <div className="w-full lg:w-1/3 flex flex-col">
           <EventCalendarContainer date={(await searchParams).date}/>
+        </div>
+      </div>
+      
+      {/* Bottom Dashboard Widgets */}
+      <div className="flex gap-4 flex-col md:flex-row">
+        <div className="w-full md:w-2/3 h-[500px]">
+          <FinanceChart />
+        </div>
+        <div className="w-full md:w-1/3 h-[500px] flex flex-col">
           <Announcements />
         </div>
       </div>
@@ -121,5 +125,3 @@ const AdminPage = async ({
 };
 
 export default AdminPage;
-
-    
