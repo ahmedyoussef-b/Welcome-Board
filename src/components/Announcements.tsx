@@ -55,7 +55,7 @@ const Announcements = async () => {
       <div className="flex items-center justify-between flex-shrink-0">
         <h1 className="text-xl font-semibold">Annonces</h1>
       </div>
-      <div className="flex-grow mt-4 pr-2 overflow-y-auto">
+      <div className="flex-grow mt-4 pr-2 overflow-y-auto min-h-0">
         <div className="flex flex-col gap-4">
           {data.map((announcement, index) => {
             const cardColors = ["bg-lamaSkyLight", "bg-lamaPurpleLight", "bg-lamaYellowLight"];
@@ -71,14 +71,13 @@ const Announcements = async () => {
                   content = (
                     <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                       {fileInfo.files.slice(0, 4).map((file: any, idx: number) => (
-                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50">
+                        <Link key={idx} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative rounded-md overflow-hidden group bg-muted/50 aspect-square">
                            <Image 
                               src={file.url} 
                               alt={`${announcement.title} - image ${idx + 1}`} 
-                              width={400}
-                              height={400}
+                              fill
                               sizes="150px" 
-                              style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
+                              style={{objectFit: 'contain'}}
                               className="group-hover:scale-105 transition-transform" 
                             />
                           {idx === 3 && fileInfo.files.length > 4 && (
@@ -104,7 +103,7 @@ const Announcements = async () => {
                           height={1100}
                           sizes="(max-width: 768px) 100vw, 50vw" 
                           style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                          className="rounded-md"
+                          className="rounded-md" 
                         />
                       </Link>
                     );
@@ -129,7 +128,7 @@ const Announcements = async () => {
                           height={1100}
                           sizes="(max-width: 768px) 100vw, 50vw" 
                           style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                          className="rounded-md"
+                          className="rounded-md" 
                         />
                       </Link>
                     );
