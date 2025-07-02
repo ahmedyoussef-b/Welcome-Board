@@ -42,7 +42,7 @@ const RoomSelectorPopover: React.FC<{
         const [hour, minute] = timeSlot.split(':').map(Number);
         const checkTime = new Date(Date.UTC(1970, 0, 1, hour, minute)).getTime();
         
-        if (!fullSchedule || !Array.isArray(fullSchedule)) {
+        if (!Array.isArray(fullSchedule)) {
             return [];
         }
 
@@ -62,11 +62,11 @@ const RoomSelectorPopover: React.FC<{
     }, [day, timeSlot, fullSchedule, lesson]);
     
     const availableRooms = useMemo(() => {
-        if (!wizardData || !Array.isArray(wizardData.rooms)) {
+        if (!Array.isArray(wizardData.rooms)) {
             return [];
         }
         return wizardData.rooms.filter(room => !occupiedRoomIds.includes(room.id));
-    }, [wizardData, occupiedRoomIds]);
+    }, [wizardData.rooms, occupiedRoomIds]);
     
     const handleRoomChange = (newRoomId: number | null) => {
         if (!lesson) return;
@@ -180,8 +180,8 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     );
 };
 
-const DroppableEmptyCell = ({ day, timeSlot, onClick, isHighlighted, highlightColor }: { day: Day; timeSlot: string; onClick?: (day: Day, timeSlot: string) => void; isHighlighted?: boolean; highlightColor?: string | null; }) => {
-    const { setNodeRef, isOver } = useDroppable({
+const DroppableEmptyCell = ({ day, timeSlot, onClick, isAvailable, isOver, highlightColorClass }: { day: Day; timeSlot: string; onClick?: (day: Day, timeSlot: string) => void; isAvailable: boolean; isOver: boolean; highlightColorClass: string | null; }) => {
+    const { setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
         data: { day, time: timeSlot }
     });
@@ -189,12 +189,14 @@ const DroppableEmptyCell = ({ day, timeSlot, onClick, isHighlighted, highlightCo
     return (
         <div
             ref={setNodeRef}
-            onClick={() => onClick?.(day, timeSlot)}
+            onClick={() => isAvailable && onClick?.(day, timeSlot)}
             className={cn(
                 'h-24 w-full rounded-md transition-colors relative group p-1',
-                (isHighlighted || isOver)
-                  ? `${highlightColor} border-2 border-dashed border-primary animate-subtle-pulse` 
-                  : 'hover:bg-muted/50'
+                isOver && 'ring-2 ring-primary',
+                !isOver && isAvailable && highlightColorClass,
+                !isOver && isAvailable && 'border-2 border-dashed border-primary/50 animate-subtle-pulse',
+                !isAvailable && 'hover:bg-muted/50',
+                isAvailable && 'cursor-pointer'
             )}
         >
         </div>
@@ -268,6 +270,8 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
   
   const exportToPDF = () => { window.print(); };
 
+  const highlightColorClass = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
+
   return (
     <div className="space-y-6 mt-4">
        {!isEditable && (
@@ -311,6 +315,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                     }
 
                     const cellData = scheduleGrid[cellId];
+                    const isAvailable = availableSlots ? availableSlots.has(cellId) : false;
                     
                     if (cellData) {
                         return (
@@ -319,17 +324,15 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                           </TableCell>
                         );
                     } else {
-                        const isHighlighted = availableSlots ? availableSlots.has(cellId) : false;
-                        const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
-
                         return (
                             <TableCell key={cellId} className="p-0 border align-top">
                                 <DroppableEmptyCell
                                     day={dayEnum}
                                     timeSlot={time}
                                     onClick={onEmptyCellClick}
-                                    isHighlighted={isHighlighted}
-                                    highlightColor={highlightColor}
+                                    isAvailable={isAvailable}
+                                    highlightColorClass={highlightColorClass}
+                                    isOver={false} // This will be handled by DndContext
                                 />
                             </TableCell>
                         );
