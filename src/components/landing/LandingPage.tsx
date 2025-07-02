@@ -27,7 +27,7 @@ const roles = [
     icon: Users,
   },
   {
-    title: 'Étudiant',
+    title: 'Élève',
     description: "Consultez votre emploi du temps, voyez vos devoirs et examens, et participez activement aux cours en ligne.",
     icon: GraduationCap,
   },
