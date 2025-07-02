@@ -37,7 +37,6 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: ScheduleE
     const [selectedClassId, setSelectedClassId] = useState<string>(wizardData.classes[0]?.id.toString() || '');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>(wizardData.teachers[0]?.id || '');
     
-    // Correctly define filteredSchedule using useMemo
     const filteredSchedule = useMemo(() => {
         if (viewMode === 'class') {
             if (!selectedClassId) return [];
