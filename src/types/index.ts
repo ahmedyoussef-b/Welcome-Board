@@ -111,6 +111,12 @@ export interface SubjectRequirement {
     timePreference: 'ANY' | 'AM' | 'PM';
 }
 
+export interface TeacherAssignment {
+  teacherId: string;
+  subjectId: number;
+  classIds: number[];
+}
+
 export interface SchoolData {
   name: string;
   startTime: string;
@@ -128,6 +134,7 @@ export interface WizardData {
   lessonRequirements: LessonRequirement[];
   teacherConstraints?: TeacherConstraint[];
   subjectRequirements?: SubjectRequirement[];
+  teacherAssignments?: TeacherAssignment[];
 }
 
 export type CreateSubjectPayload = {
@@ -189,4 +196,46 @@ export interface JwtPayload {
   name?: string;
   iat: number;
   exp: number;
+}
+
+// Chatroom Types
+export interface SessionParticipant {
+  id: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'teacher' | 'student';
+  img?: string | null;
+  isOnline: boolean;
+  isInSession: boolean;
+  hasRaisedHand?: boolean;
+  raisedHandAt?: string;
+  points: number;
+  badges: any[]; // Replace 'any' with a proper Badge type if you have one
+}
+
+export interface ClassRoom {
+  id: number;
+  name: string;
+  students: SessionParticipant[];
+}
+
+export interface ActiveSession {
+  id: string;
+  sessionType: 'class' | 'meeting';
+  classId: string;
+  className: string;
+  participants: SessionParticipant[];
+  startTime: string;
+  raisedHands: string[];
+  reactions: any[]; // Replace 'any' with a proper Reaction type
+  polls: any[]; // Replace 'any' with a proper Poll type
+  activePoll?: any; // Replace 'any' with a proper Poll type
+  quizzes: any[]; // Replace 'any' with a proper Quiz type
+  activeQuiz?: any; // Replace 'any' with a proper Quiz type
+  rewardActions: any[]; // Replace 'any' with a proper Reward type
+  classTimer: {
+    duration: number;
+    remaining: number;
+    isActive: boolean;
+  } | null;
 }

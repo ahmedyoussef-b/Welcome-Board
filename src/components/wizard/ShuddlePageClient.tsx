@@ -18,7 +18,8 @@ import { selectSchedule, selectScheduleStatus } from '@/lib/redux/features/sched
 import { selectLessonRequirements } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
 import { selectTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
 import { selectSubjectRequirements } from '@/lib/redux/features/subjectRequirementsSlice';
-import type { SchoolData, WizardData, Classroom, Subject, TeacherWithDetails, ClassWithGrade, LessonRequirement, TeacherConstraint, SubjectRequirement } from '@/types';
+import { selectTeacherAssignments } from '@/lib/redux/features/teacherAssignmentsSlice';
+import type { SchoolData, WizardData, Classroom, Subject, TeacherWithDetails, ClassWithGrade, LessonRequirement, TeacherConstraint, SubjectRequirement, TeacherAssignment } from '@/types';
 
 // Dynamic imports for wizard steps
 const SchoolConfigForm = dynamic(() => import('./SchoolConfigForm'), { loading: () => <p>Chargement...</p> });
@@ -55,6 +56,7 @@ export default function ShuddlePageClient() {
     const lessonRequirements = useAppSelector(selectLessonRequirements);
     const teacherConstraints = useAppSelector(selectTeacherConstraints);
     const subjectRequirements = useAppSelector(selectSubjectRequirements);
+    const teacherAssignments = useAppSelector(selectTeacherAssignments);
     
     const [schoolConfig, setSchoolConfig] = useState<SchoolData>({
       name: 'Collège Jean Moulin',
@@ -81,7 +83,8 @@ export default function ShuddlePageClient() {
       lessonRequirements: lessonRequirements,
       teacherConstraints: teacherConstraints,
       subjectRequirements: subjectRequirements,
-    }), [schoolConfig, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints, subjectRequirements]);
+      teacherAssignments: teacherAssignments,
+    }), [schoolConfig, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints, subjectRequirements, teacherAssignments]);
   
     const handleNext = () => {
       if (currentStep < steps.length - 1) {

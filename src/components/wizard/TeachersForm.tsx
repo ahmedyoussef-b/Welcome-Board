@@ -1,19 +1,21 @@
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import React from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Save, Loader2, User, Users, RotateCcw } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import type { TeacherWithDetails, ClassWithGrade } from '@/types';
+import { BookOpen, User, RotateCcw } from 'lucide-react';
+import type { TeacherWithDetails, ClassWithGrade, Subject } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { selectAllProfesseurs, saveTeacherAssignments, setSupervisorForClass, unassignAllClasses } from '@/lib/redux/features/teachers/teachersSlice';
+import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
-import { selectAllGrades } from '@/lib/redux/features/grades/gradesSlice';
+import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
+import { updateTeacherAssignment, selectTeacherAssignments, clearAllAssignments } from '@/lib/redux/features/teacherAssignmentsSlice';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '../ui/checkbox';
+import { Label } from '../ui/label';
+import { ScrollArea } from '../ui/scroll-area';
 
 const TeachersForm: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -21,141 +23,101 @@ const TeachersForm: React.FC = () => {
 
   const allTeachers = useAppSelector(selectAllProfesseurs);
   const allClasses = useAppSelector(selectAllClasses);
-  const allGrades = useAppSelector(selectAllGrades);
+  const allSubjects = useAppSelector(selectAllMatieres);
+  const assignments = useAppSelector(selectTeacherAssignments);
 
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Helper to find the current supervisor for a class
-  const findSupervisorId = (classId: number): string | undefined => {
-    const teacher = allTeachers.find(t => t.classes.some(c => c.id === classId));
-    return teacher?.id;
-  };
-
-  const handleSupervisorChange = (classId: number, newTeacherId: string) => {
-    // 'none' is a special value from the SelectItem to indicate no supervisor
-    const teacherIdOrNull = newTeacherId === 'none' ? null : newTeacherId;
-    dispatch(setSupervisorForClass({ classId, teacherId: teacherIdOrNull }));
-  };
-
-  const handleSaveChanges = async () => {
-    setIsSaving(true);
-    const assignmentPayload = allTeachers.map(teacher => ({
-        teacherId: teacher.id,
-        classIds: teacher.classes.map(cls => cls.id),
-    }));
-
-    const result = await dispatch(saveTeacherAssignments(assignmentPayload));
+  const handleClassChange = (teacherId: string, subjectId: number, classId: number, isChecked: boolean) => {
+    const currentAssignment = assignments.find(a => a.teacherId === teacherId && a.subjectId === subjectId);
+    const currentClassIds = currentAssignment?.classIds || [];
     
-    if (saveTeacherAssignments.fulfilled.match(result)) {
-        toast({
-            title: "Sauvegarde réussie",
-            description: "Les assignations des professeurs principaux ont été enregistrées.",
-        });
+    let newClassIds: number[];
+    if (isChecked) {
+      newClassIds = [...currentClassIds, classId];
     } else {
-        toast({
-            variant: "destructive",
-            title: "Erreur de sauvegarde",
-            description: "Une erreur est survenue lors de la sauvegarde des assignations.",
-        });
+      newClassIds = currentClassIds.filter(id => id !== classId);
     }
-    setIsSaving(false);
+    
+    dispatch(updateTeacherAssignment({ teacherId, subjectId, classIds: newClassIds }));
   };
-
-  const handleResetAssignments = () => {
-    dispatch(unassignAllClasses());
-    toast({
-        title: "Assignations réinitialisées",
-        description: "Tous les professeurs principaux ont été désassignés.",
-    });
+  
+  const handleReset = () => {
+      dispatch(clearAllAssignments());
+      toast({ title: 'Assignations réinitialisées' });
   };
 
   return (
-      <div className="space-y-6">
-        <Card className="p-6 sticky top-0 bg-background/90 backdrop-blur-sm z-10">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-center space-x-3">
-                    <User className="text-primary" size={24} />
-                    <div>
-                        <h3 className="text-lg font-semibold">Assigner les Professeurs Principaux aux Classes</h3>
-                        <p className="text-sm text-muted-foreground">Chaque classe doit avoir un seul superviseur.</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-2 self-end md:self-center">
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                         <Button variant="outline" disabled={isSaving}>
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Réinitialiser
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Confirmer la réinitialisation ?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Cette action va désassigner tous les professeurs principaux de toutes les classes. Voulez-vous continuer ?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Annuler</AlertDialogCancel>
-                          <AlertDialogAction onClick={handleResetAssignments} className="bg-destructive hover:bg-destructive/90">Confirmer</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-
-                    <Button onClick={handleSaveChanges} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        {isSaving ? 'Sauvegarde...' : 'Sauvegarder'}
-                    </Button>
-                </div>
+    <div className="space-y-6">
+      <Card className="p-6 sticky top-0 bg-background/90 backdrop-blur-sm z-10">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <User className="text-primary" size={24} />
+            <div>
+              <h3 className="text-lg font-semibold">Assigner les Professeurs aux Classes par Matière</h3>
+              <p className="text-sm text-muted-foreground">Définissez quel professeur enseigne quelle matière dans quelles classes.</p>
             </div>
-        </Card>
+          </div>
+          <div className="flex items-center gap-2 self-end md:self-center">
+            <Button onClick={handleReset} variant="outline">
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Réinitialiser
+            </Button>
+          </div>
+        </div>
+      </Card>
 
-        <Accordion type="multiple" className="w-full space-y-4" defaultValue={allGrades.map(g => `grade-${g.id}`)}>
-            {allGrades.map(grade => {
-                const classesInGrade = allClasses.filter(c => c.gradeId === grade.id);
-                if (classesInGrade.length === 0) return null;
+      <Accordion type="multiple" className="w-full space-y-4" defaultValue={allSubjects.map(s => `subject-${s.id}`)}>
+        {allSubjects.map(subject => {
+          const teachersForSubject = allTeachers.filter(t => t.subjects.some(s => s.id === subject.id));
 
-                return (
-                    <AccordionItem value={`grade-${grade.id}`} key={grade.id} className="border rounded-lg overflow-hidden bg-card">
-                        <AccordionTrigger className="px-6 py-4 bg-muted/30 hover:bg-muted/50">
-                            <div className="flex items-center gap-3">
-                                <Users className="h-5 w-5 text-primary" />
-                                <h3 className="text-lg font-semibold">Niveau {grade.level} ({classesInGrade.length} classes)</h3>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="p-4 md:p-6 space-y-4">
-                            {classesInGrade.map(cls => {
-                                const supervisorId = findSupervisorId(cls.id);
-                                return (
-                                    <div key={cls.id} className="p-4 border rounded-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 hover:bg-muted/20 transition-colors">
-                                        <div className="font-medium">{cls.name}</div>
-                                        <div className="w-full sm:w-64">
-                                            <Select
-                                                value={supervisorId || 'none'}
-                                                onValueChange={(newTeacherId) => handleSupervisorChange(cls.id, newTeacherId)}
-                                            >
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Choisir un professeur principal..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="none">Aucun</SelectItem>
-                                                    {allTeachers.map(teacher => (
-                                                        <SelectItem key={teacher.id} value={teacher.id}>
-                                                            {teacher.name} {teacher.surname}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </AccordionContent>
-                    </AccordionItem>
-                );
-            })}
-        </Accordion>
-      </div>
+          return (
+            <AccordionItem value={`subject-${subject.id}`} key={subject.id} className="border rounded-lg overflow-hidden bg-card">
+              <AccordionTrigger className="px-6 py-4 bg-muted/30 hover:bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">{subject.name}</h3>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="p-4 md:p-6 space-y-4">
+                {teachersForSubject.length > 0 ? teachersForSubject.map(teacher => {
+                   const assignedClassesForSubject = assignments.find(a => a.teacherId === teacher.id && a.subjectId === subject.id)?.classIds || [];
+                   return (
+                     <Card key={teacher.id} className="p-4">
+                       <CardHeader className="p-0 mb-4">
+                         <CardTitle className="text-base flex items-center gap-2">
+                           <User size={16} />
+                           {teacher.name} {teacher.surname}
+                         </CardTitle>
+                       </CardHeader>
+                       <CardContent className="p-0">
+                         <Label className="text-xs text-muted-foreground">Classes à prendre en charge pour cette matière :</Label>
+                         <ScrollArea className="h-40 mt-2 border rounded-md p-3">
+                           <div className="space-y-2">
+                             {allClasses.map(cls => (
+                               <div key={cls.id} className="flex items-center space-x-2">
+                                 <Checkbox
+                                   id={`check-${teacher.id}-${subject.id}-${cls.id}`}
+                                   checked={assignedClassesForSubject.includes(cls.id)}
+                                   onCheckedChange={(checked) => handleClassChange(teacher.id, subject.id, cls.id, !!checked)}
+                                 />
+                                 <Label htmlFor={`check-${teacher.id}-${subject.id}-${cls.id}`} className="text-sm font-normal">
+                                   {cls.name}
+                                 </Label>
+                               </div>
+                             ))}
+                           </div>
+                         </ScrollArea>
+                       </CardContent>
+                     </Card>
+                   );
+                }) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">Aucun professeur n'est compétent pour cette matière.</p>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          );
+        })}
+      </Accordion>
+    </div>
   );
 };
 

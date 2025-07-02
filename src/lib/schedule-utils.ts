@@ -1,5 +1,5 @@
 // src/lib/schedule-utils.ts
-import type { WizardData, Day, TeacherConstraint, Subject, Lesson } from '@/types';
+import type { WizardData, Day, TeacherConstraint, Subject, Lesson, TeacherAssignment, TeacherWithDetails } from '@/types';
 import { type Lesson as PrismaLesson } from '@prisma/client';
 
 type SchedulableLesson = Omit<PrismaLesson, 'id' | 'createdAt' | 'updatedAt'>;
@@ -40,78 +40,44 @@ export const calculateAvailableSlots = (
 ): Set<string> => {
     const slots = new Set<string>();
 
-    // --- Guards ---
     if (!selectedSubject || viewMode !== 'class' || !selectedClassId || !wizardData.school || !Array.isArray(wizardData.teachers)) {
         return slots;
     }
 
     const { school, teachers, teacherConstraints = [] } = wizardData;
-
-    // --- Logic ---
     const schoolDays = school.schoolDays.map(d => d.toUpperCase() as Day);
     const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+    const potentialTeachers = teachers.filter(t => Array.isArray(t.subjects) && t.subjects.some(s => s.id === selectedSubject.id));
 
-    const potentialTeachers = teachers.filter(t =>
-        Array.isArray(t.subjects) && t.subjects.some(s => s.id === selectedSubject.id)
-    );
-
-    if (potentialTeachers.length === 0) {
-        return slots;
-    }
+    if (potentialTeachers.length === 0) return slots;
 
     schoolDays.forEach(day => {
         timeSlots.forEach(time => {
             const classIdNum = parseInt(selectedClassId, 10);
             if (isNaN(classIdNum)) return;
 
-            const isSlotOccupiedForClass = schedule.some(l =>
-                l.classId === classIdNum &&
-                l.day === day &&
-                formatTimeSimple(l.startTime) === time
-            );
-
+            const isSlotOccupiedForClass = schedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === time);
             if (isSlotOccupiedForClass) return;
 
             const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
-                const isTeacherBusy = schedule.some(l =>
-                    l.teacherId === teacher.id &&
-                    l.day === day &&
-                    formatTimeSimple(l.startTime) === time
-                );
-
+                const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === time);
                 if (isTeacherBusy) return false;
 
                 const [hour, minute] = time.split(':').map(Number);
                 const lessonEndTime = new Date(0, 0, 0, hour, minute + school.sessionDuration);
                 const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-
-                const constraint = findConflictingConstraint(
-                    teacher.id,
-                    day,
-                    time,
-                    lessonEndTimeStr,
-                    teacherConstraints
-                );
-
-                return !constraint;
+                return !findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, teacherConstraints);
             });
 
-            if (isAnyTeacherAvailable) {
-                slots.add(`${day}-${time}`);
-            }
+            if (isAnyTeacherAvailable) slots.add(`${day}-${time}`);
         });
     });
-
     return slots;
 };
 
-
 export const mergeConsecutiveLessons = (lessons: PrismaLesson[], wizardData: WizardData): PrismaLesson[] => {
     if (!lessons || lessons.length === 0) return [];
-
     const dayOrder: Day[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-
-    // Efficiently group lessons by day
     const lessonsByDay: { [key in Day]?: PrismaLesson[] } = {};
     for (const lesson of lessons) {
         if (!lessonsByDay[lesson.day]) {
@@ -119,53 +85,34 @@ export const mergeConsecutiveLessons = (lessons: PrismaLesson[], wizardData: Wiz
         }
         lessonsByDay[lesson.day]!.push(lesson);
     }
-
     const finalMergedLessons: PrismaLesson[] = [];
-
-    // Process each day independently
     for (const day of dayOrder) {
         const dailyLessons = lessonsByDay[day];
         if (!dailyLessons || dailyLessons.length === 0) continue;
-
-        // Sort a *copy* of the lessons for that day to avoid mutating the original data
         const sortedDailyLessons = [...dailyLessons].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-
         const mergedDailyLessons: PrismaLesson[] = [];
         let i = 0;
         while (i < sortedDailyLessons.length) {
-            let currentLesson = { ...sortedDailyLessons[i] }; // Create a mutable copy
+            let currentLesson = { ...sortedDailyLessons[i] };
             let j = i + 1;
-
-            // Look for consecutive lessons with the same properties
-            while (
-                j < sortedDailyLessons.length &&
-                sortedDailyLessons[j].classId === currentLesson.classId &&
-                sortedDailyLessons[j].subjectId === currentLesson.subjectId &&
-                sortedDailyLessons[j].teacherId === currentLesson.teacherId &&
-                new Date(sortedDailyLessons[j].startTime).getTime() === new Date(currentLesson.endTime).getTime()
-            ) {
-                // Merge by extending the end time
+            while (j < sortedDailyLessons.length && sortedDailyLessons[j].classId === currentLesson.classId && sortedDailyLessons[j].subjectId === currentLesson.subjectId && sortedDailyLessons[j].teacherId === currentLesson.teacherId && new Date(sortedDailyLessons[j].startTime).getTime() === new Date(currentLesson.endTime).getTime()) {
                 currentLesson.endTime = sortedDailyLessons[j].endTime;
                 j++;
             }
-
             mergedDailyLessons.push(currentLesson);
-            i = j; // Move to the next lesson that wasn't merged
+            i = j;
         }
         finalMergedLessons.push(...mergedDailyLessons);
     }
-
     return finalMergedLessons;
 };
 
-
 export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] => {
     const newSchedule: SchedulableLesson[] = [];
-    const { school, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints = [], subjectRequirements = [] } = wizardData;
+    const { school, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints = [], subjectRequirements = [], teacherAssignments = [] } = wizardData;
 
     if (!school.schoolDays || school.schoolDays.length === 0) return [];
 
-    // Helper to check for consecutive time slots
     const isConsecutive = (lastTime: string, newTime: string, durationMinutes: number): boolean => {
         const [lastH, lastM] = lastTime.split(':').map(Number);
         const [newH, newM] = newTime.split(':').map(Number);
@@ -182,11 +129,9 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
     const amSlots = ['08:00', '09:00', '10:00', '11:00'];
     const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
 
-    // Occupancy trackers
-    const occupancy: { [key: string]: boolean } = {}; // Tracks teacher, class, and room occupancy for a specific slot
-    const dailySubjectPlacement: { [key: string]: string } = {}; // Tracks the last placed time for a subject in a class on a specific day
+    const occupancy: { [key: string]: boolean } = {};
+    const dailySubjectPlacement: { [key: string]: string } = {};
 
-    // 1. Create a flat list of all "lesson hours" to be scheduled
     const lessonSlotsToFill: { classItem: typeof classes[0], subject: typeof subjects[0] }[] = [];
     classes.forEach(classItem => {
         subjects.forEach(subject => {
@@ -198,14 +143,11 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
         });
     });
 
-    // Shuffle to randomize placement order and avoid patterns
     lessonSlotsToFill.sort(() => Math.random() - 0.5);
 
-    // 2. Iterate through each lesson unit and try to place it
     lessonSlotsToFill.forEach(slot => {
         const { classItem, subject } = slot;
         let placed = false;
-
         const shuffledDays = [...schoolDays].sort(() => Math.random() - 0.5);
 
         for (const day of shuffledDays) {
@@ -217,21 +159,22 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
             const shuffledTimes = [...applicableTimeSlots].sort(() => Math.random() - 0.5);
 
             for (const time of shuffledTimes) {
-                //--- PRIMARY CHECKS ---
-                // Is the class itself already busy?
                 if (occupancy[`class-${classItem.id}-${day}-${time}`]) continue;
 
-                // --- NEW CONSECUTIVE CONSTRAINT ---
                 const dailySubjectKey = `${classItem.id}-${subject.id}-${day}`;
                 const lastPlacedTime = dailySubjectPlacement[dailySubjectKey];
                 if (lastPlacedTime && !isConsecutive(lastPlacedTime, time, school.sessionDuration)) {
-                    // This subject has been placed on this day, but this slot is not consecutive.
-                    // Skip this time slot for this subject on this day.
                     continue; 
                 }
                 
-                // --- TEACHER CHECKS ---
-                const potentialTeachers = teachers.filter(t => t.subjects.some(s => s.id === subject.id));
+                const assignment = teacherAssignments.find(a => a.subjectId === subject.id && a.classIds.includes(classItem.id));
+                let potentialTeachers: TeacherWithDetails[];
+                if (assignment) {
+                    potentialTeachers = teachers.filter(t => t.id === assignment.teacherId);
+                } else {
+                    potentialTeachers = teachers.filter(t => t.subjects.some(s => s.id === subject.id));
+                }
+
                 const availableTeacher = potentialTeachers.find(t => {
                     if (occupancy[`teacher-${t.id}-${day}-${time}`]) return false;
                     const [hour, minute] = time.split(':').map(Number);
@@ -241,16 +184,13 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
                 });
                 if (!availableTeacher) continue;
 
-                // --- ROOM CHECKS ---
                 let potentialRooms = rooms.filter(r => !occupancy[`room-${r.id}-${day}-${time}`] && r.capacity >= classItem.capacity);
                 if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any') {
                     potentialRooms = potentialRooms.filter(r => r.id === subjectReq.requiredRoomId);
                 }
                 const availableRoom = potentialRooms.length > 0 ? potentialRooms[0] : null;
-                if (potentialRooms.length > 0 && !availableRoom) continue; // Rooms exist, but none are suitable
-                if (rooms.length > 0 && subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && potentialRooms.length === 0) continue; // Required room is not available
+                if (rooms.length > 0 && subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && potentialRooms.length === 0) continue;
 
-                // --- PLACEMENT ---
                 const [hour, minute] = time.split(':').map(Number);
                 newSchedule.push({
                     name: `${subject.name} - ${classItem.name}`,
@@ -263,16 +203,15 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
                     classroomId: availableRoom ? availableRoom.id : null,
                 });
 
-                // Update all occupancy trackers
                 occupancy[`teacher-${availableTeacher.id}-${day}-${time}`] = true;
                 occupancy[`class-${classItem.id}-${day}-${time}`] = true;
                 if (availableRoom) occupancy[`room-${availableRoom.id}-${day}-${time}`] = true;
-                dailySubjectPlacement[dailySubjectKey] = time; // Update last placed time
+                dailySubjectPlacement[dailySubjectKey] = time;
 
                 placed = true;
-                break; // Exit time loop
+                break;
             }
-            if (placed) break; // Exit day loop
+            if (placed) break;
         }
     });
 

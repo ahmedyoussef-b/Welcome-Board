@@ -78,33 +78,6 @@ export const deleteProfesseur = createAsyncThunk<string, string, { rejectValue: 
     }
 );
 
-export const saveTeacherAssignments = createAsyncThunk<
-  void, 
-  { teacherId: string; classIds: number[] }[],
-  { rejectValue: string }
->(
-  'teachers/saveAssignments',
-  async (assignments, { rejectWithValue }) => {
-    try {
-      const response = await fetch('/api/teachers/batch-assign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(assignments),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        return rejectWithValue(errorData.message ?? 'Échec de la sauvegarde des assignations');
-      }
-    } catch (error) {
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-      return rejectWithValue('An unknown network error occurred');
-    }
-  }
-);
-
-
 export const teachersSlice = createSlice({
   name: 'teachers',
   initialState,
@@ -112,43 +85,7 @@ export const teachersSlice = createSlice({
     setAllTeachers(state, action: PayloadAction<TeacherWithDetails[]>) {
       state.items = action.payload;
       state.status = 'succeeded';
-    },
-    setSupervisorForClass(state, action: PayloadAction<{ classId: number; teacherId: string | null }>) {
-      const { classId, teacherId } = action.payload;
-      
-      let classData: ClassWithGrade | undefined;
-
-      // Find the class data and remove it from its old supervisor
-      state.items.forEach(teacher => {
-          const classIndex = teacher.classes.findIndex(c => c.id === classId);
-          if (classIndex > -1) {
-              // Found the class, store its data before removing.
-              // This is a shallow copy which is fine inside Immer.
-              if (!classData) {
-                  classData = teacher.classes[classIndex];
-              }
-              teacher.classes.splice(classIndex, 1);
-          }
-      });
-
-      // Assign the class to the new supervisor (if any)
-      if (teacherId && classData) {
-          const newSupervisor = state.items.find(t => t.id === teacherId);
-          if (newSupervisor) {
-              // Ensure no duplicates, though the logic above should prevent it
-              if (!newSupervisor.classes.some(c => c.id === classId)) {
-                  newSupervisor.classes.push(classData);
-                  // Keep the list sorted for consistent display
-                  newSupervisor.classes.sort((a,b) => a.name.localeCompare(b.name));
-              }
-          }
-      }
-    },
-    unassignAllClasses: (state) => {
-        state.items.forEach(teacher => {
-            teacher.classes = [];
-        });
-    },
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -167,18 +104,8 @@ export const teachersSlice = createSlice({
       .addCase(deleteProfesseur.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter(p => p.id !== action.payload);
       })
-      .addCase(saveTeacherAssignments.pending, (state) => {
-        state.status = 'loading';
-      })
-      .addCase(saveTeacherAssignments.fulfilled, (state) => {
-        state.status = 'succeeded';
-      })
-      .addCase(saveTeacherAssignments.rejected, (state, action) => {
-        state.status = 'failed';
-        state.error = action.payload ?? 'Failed to save assignments';
-      })
       .addMatcher(
-        (action): action is PayloadAction<string> => action.type.endsWith('/rejected') && !action.type.startsWith('teachers/saveAssignments'),
+        (action): action is PayloadAction<string> => action.type.endsWith('/rejected'),
         (state, action) => {
             state.status = 'failed';
             state.error = action.payload;
@@ -192,6 +119,6 @@ export const teachersSlice = createSlice({
   }
 });
 
-export const { setAllTeachers, setSupervisorForClass, unassignAllClasses } = teachersSlice.actions;
+export const { setAllTeachers } = teachersSlice.actions;
 export const { selectAllProfesseurs, getProfesseursStatus, getProfesseursError } = teachersSlice.selectors;
 export default teachersSlice.reducer;
