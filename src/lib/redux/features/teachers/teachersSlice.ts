@@ -88,28 +88,40 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
+
+        // Use map to return a new array, ensuring immutability and triggering re-renders reliably.
         state.items = state.items.map(teacher => {
-            if (teacher.id === teacherId) {
-                // Return a new teacher object with a new classes array
-                return {
-                    ...teacher,
-                    classes: [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name))
-                };
+            // If this is not the teacher we're looking for, return it unchanged.
+            if (teacher.id !== teacherId) {
+                return teacher;
             }
-            return teacher;
+
+            // This is the teacher to update. Create a new object for it.
+            const updatedTeacher = {
+                ...teacher, // Copy all existing properties
+                classes: [...teacher.classes, classData] // Create a new array for classes
+                    .sort((a, b) => a.name.localeCompare(b.name)), // Sort the new array
+            };
+            
+            return updatedTeacher;
         });
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
+
+        // Use map for reliable immutable updates.
         state.items = state.items.map(teacher => {
-            if (teacher.id === teacherId) {
-                // Return a new teacher object with a new, filtered classes array
-                return {
-                    ...teacher,
-                    classes: teacher.classes.filter(c => c.id !== classId)
-                };
+            if (teacher.id !== teacherId) {
+                return teacher;
             }
-            return teacher;
+
+            // Create a new teacher object with the class filtered out.
+            const updatedTeacher = {
+                ...teacher,
+                classes: teacher.classes.filter(c => c.id !== classId),
+            };
+            
+            return updatedTeacher;
         });
     },
   },

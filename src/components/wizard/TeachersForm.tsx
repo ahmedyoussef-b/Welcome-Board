@@ -69,30 +69,19 @@ function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails,
 
 // --- Main Form Component ---
 
-// No props are needed as data is sourced from Redux store.
 const TeachersForm: React.FC = () => {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
 
-  // Get live data directly from the Redux store
   const teachers = useAppSelector(selectAllProfesseurs);
   const allClasses = useAppSelector(selectAllClasses);
   const allSubjects = useAppSelector(selectAllMatieres);
   
-  // Calculate this on every render to avoid stale data from useMemo
-  const subjectsWithTeachersMap = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
-  allSubjects.forEach(subject => {
-      const teachersForSubject = teachers.filter(teacher => teacher.subjects.some(s => s.id === subject.id));
-      if (teachersForSubject.length > 0) {
-          subjectsWithTeachersMap.set(subject.id, { subject, teachers: teachersForSubject });
-      }
-  });
-  const subjectsWithTeachers = Array.from(subjectsWithTeachersMap.values());
-
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) return;
+    if (!over) {
+      return;
+    }
 
     const classData = active.data.current?.classData as ClassWithGrade | undefined;
     const teacherId = over.data.current?.teacherId as string | undefined;
@@ -126,10 +115,23 @@ const TeachersForm: React.FC = () => {
             <p className="text-sm text-muted-foreground">Pour chaque matière, faites glisser les classes disponibles vers les professeurs qui les enseigneront.</p>
         </Card>
 
-        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => {
-            const assignedClassIdsInGroup = new Set(subjectTeachers.flatMap(t => t.classes.map(c => c.id)));
-            const unassignedClassesForGroup = allClasses.filter(c => !assignedClassIdsInGroup.has(c.id));
+        {allSubjects.map((subject) => {
+            const subjectTeachers = teachers.filter(teacher => 
+                teacher.subjects.some(s => s.id === subject.id)
+            );
+
+            if (subjectTeachers.length === 0) {
+                return null;
+            }
             
+            const assignedClassIdsInGroup = new Set(
+                subjectTeachers.flatMap(t => t.classes.map(c => c.id))
+            );
+            
+            const unassignedClassesForGroup = allClasses.filter(
+                c => !assignedClassIdsInGroup.has(c.id)
+            );
+
             return (
                 <Card key={subject.id} className="p-6">
                     <div className="flex items-center space-x-2 mb-4">
@@ -138,7 +140,6 @@ const TeachersForm: React.FC = () => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {/* Unassigned classes panel for this subject group */}
                         <div className="md:col-span-1">
                              <h4 className="font-semibold mb-2">Classes non assignées ({unassignedClassesForGroup.length})</h4>
                             <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[400px] overflow-y-auto grid grid-cols-1 gap-2">
@@ -152,7 +153,6 @@ const TeachersForm: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Teacher dropzones for this subject group */}
                         <div className="space-y-4 md:col-span-2">
                             <h4 className="font-semibold mb-2">Professeurs de {subject.name}</h4>
                             {subjectTeachers.map(teacher => (
