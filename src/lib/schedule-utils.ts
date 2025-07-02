@@ -130,24 +130,12 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
 
     if (!school.schoolDays || school.schoolDays.length === 0) return [];
 
-    const isConsecutive = (lastTime: string, newTime: string, durationMinutes: number): boolean => {
-        const [lastH, lastM] = lastTime.split(':').map(Number);
-        const [newH, newM] = newTime.split(':').map(Number);
-        const lastDate = new Date(0);
-        lastDate.setUTCHours(lastH, lastM, 0, 0);
-        const newDate = new Date(0);
-        newDate.setUTCHours(newH, newM, 0, 0);
-        const expectedNewDate = new Date(lastDate.getTime() + durationMinutes * 60 * 1000);
-        return newDate.getTime() === expectedNewDate.getTime();
-    };
-
     const schoolDays = school.schoolDays.map(d => d.toUpperCase() as Day);
     const allTimeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
     const amSlots = ['08:00', '09:00', '10:00', '11:00'];
     const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
 
     const occupancy: { [key: string]: boolean } = {};
-    const dailySubjectPlacement: { [key: string]: string } = {};
 
     const lessonSlotsToFill: { classItem: typeof classes[0], subject: typeof subjects[0] }[] = [];
     classes.forEach(classItem => {
@@ -178,10 +166,25 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
             for (const time of shuffledTimes) {
                 if (occupancy[`class-${classItem.id}-${day}-${time}`]) continue;
 
-                const dailySubjectKey = `${classItem.id}-${subject.id}-${day}`;
-                const lastPlacedTime = dailySubjectPlacement[dailySubjectKey];
-                if (lastPlacedTime && !isConsecutive(lastPlacedTime, time, school.sessionDuration)) {
-                    continue; 
+                // New constraint: A subject cannot be split on the same day.
+                const lessonsTodayForThisSubject = newSchedule.filter(
+                    l => l.classId === classItem.id && l.subjectId === subject.id && l.day === day
+                );
+
+                if (lessonsTodayForThisSubject.length > 0) {
+                    // If scheduled, check for consecutiveness.
+                    const lastLesson = lessonsTodayForThisSubject.sort(
+                        (a, b) => new Date(b.endTime).getTime() - new Date(a.endTime).getTime()
+                    )[0];
+
+                    const lastEndTime = new Date(lastLesson.endTime);
+                    const [h, m] = time.split(':').map(Number);
+                    const newStartTime = new Date(Date.UTC(2000, 0, 1, h, m));
+
+                    // If the new start time doesn't match the last end time, it's not consecutive.
+                    if (lastEndTime.getTime() !== newStartTime.getTime()) {
+                        continue;
+                    }
                 }
                 
                 const assignment = teacherAssignments.find(a => a.subjectId === subject.id && a.classIds.includes(classItem.id));
@@ -223,7 +226,6 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
                 occupancy[`teacher-${availableTeacher.id}-${day}-${time}`] = true;
                 occupancy[`class-${classItem.id}-${day}-${time}`] = true;
                 if (availableRoom) occupancy[`room-${availableRoom.id}-${day}-${time}`] = true;
-                dailySubjectPlacement[dailySubjectKey] = time;
 
                 placed = true;
                 break;
