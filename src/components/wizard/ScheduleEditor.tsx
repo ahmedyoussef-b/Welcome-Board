@@ -37,7 +37,7 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
     }, [schedule, viewMode, selectedClassId, selectedTeacherId]);
 
     const handlePlaceLesson = useCallback((subject: Subject, day: Day, time: string) => {
-        const { school, teachers, rooms, classes, teacherConstraints = [], subjectRequirements = [] } = wizardData;
+        const { school, teachers, rooms, classes, teacherConstraints = [], subjectRequirements = [], teacherAssignments = [] } = wizardData;
 
         if (viewMode !== 'class' || !selectedClassId) {
              toast({ variant: "destructive", title: "Action impossible", description: "Veuillez sélectionner une classe avant d'ajouter un cours." });
@@ -48,7 +48,9 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
         const classIdNum = parseInt(selectedClassId, 10);
         
         // Find teachers assigned to this specific class
-        const teachersForThisClass = teachers.filter(t => t.classes.some(c => c.id === classIdNum));
+        const teachersForThisClass = teachers.filter(t => 
+            teacherAssignments.some(a => a.teacherId === t.id && a.classIds.includes(classIdNum))
+        );
 
         // Find a teacher from this group who is competent and available
         const availableTeacher = teachersForThisClass.find(teacher => {
@@ -79,7 +81,7 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
         }
         const availableRoom = potentialRooms.length > 0 ? potentialRooms[0] : null;
         
-        if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && !availableRoom) {
+        if (rooms.length > 0 && subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && potentialRooms.length === 0) {
             toast({ variant: "destructive", title: "Salle requise occupée", description: `La salle requise pour "${subject.name}" est occupée.` });
             return;
         }
