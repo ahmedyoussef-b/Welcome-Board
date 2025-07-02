@@ -91,14 +91,6 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers }) => {
     return Array.from(map.values());
   }, [teachers, allSubjects]);
 
-  const allAssignedClassIds = useMemo(() => {
-    return new Set(teachers.flatMap(t => t.classes.map(c => c.id)));
-  }, [teachers]);
-
-  const unassignedClasses = useMemo(() => {
-    return allClasses.filter(c => !allAssignedClassIds.has(c.id));
-  }, [allClasses, allAssignedClassIds]);
-
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -130,40 +122,48 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers }) => {
         <Card className="p-6">
             <div className="flex items-center space-x-2 mb-4">
                 <UserPlus className="text-primary" size={20} />
-                <h3 className="text-lg font-semibold">Gérer les enseignants</h3>
+                <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
             </div>
-            <p className="text-sm text-muted-foreground">L'ajout et la modification détaillée des enseignants se font désormais dans la section "Enseignants" du menu principal pour une meilleure expérience.</p>
+            <p className="text-sm text-muted-foreground">Pour chaque matière, faites glisser les classes disponibles vers les professeurs qui les enseigneront.</p>
         </Card>
 
-        {/* Global Unassigned Classes Panel */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-2">Classes non assignées ({unassignedClasses.length})</h3>
-          <p className="text-sm text-muted-foreground mb-4">Glissez une classe vers un professeur pour l'assigner.</p>
-          <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[300px] overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-            {unassignedClasses.length > 0 ? (
-              unassignedClasses.map(cls => <DraggableClass key={cls.id} classData={cls} />)
-            ) : (
-              <p className="text-sm text-muted-foreground col-span-full text-center pt-8">
-                Toutes les classes ont été assignées.
-              </p>
-            )}
-          </div>
-        </Card>
+        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => {
+            const assignedClassIdsInGroup = new Set(subjectTeachers.flatMap(t => t.classes.map(c => c.id)));
+            const unassignedClassesForGroup = allClasses.filter(c => !assignedClassIdsInGroup.has(c.id));
+            
+            return (
+                <Card key={subject.id} className="p-6">
+                    <div className="flex items-center space-x-2 mb-4">
+                        <BookOpen className="text-primary" size={20} />
+                        <h3 className="text-lg font-semibold">Matière : {subject.name}</h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Unassigned classes panel for this subject group */}
+                        <div className="md:col-span-1">
+                             <h4 className="font-semibold mb-2">Classes non assignées ({unassignedClassesForGroup.length})</h4>
+                            <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[400px] overflow-y-auto grid grid-cols-1 gap-2">
+                                {unassignedClassesForGroup.length > 0 ? (
+                                    unassignedClassesForGroup.map(cls => <DraggableClass key={cls.id} classData={cls} />)
+                                ) : (
+                                    <p className="text-sm text-muted-foreground text-center pt-8">
+                                    Toutes les classes ont été assignées pour cette matière.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
 
-        {/* Loop for subject groups, rendering only teachers */}
-        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => (
-            <Card key={subject.id} className="p-6">
-              <div className="flex items-center space-x-2 mb-4">
-                <BookOpen className="text-primary" size={20} />
-                <h3 className="text-lg font-semibold">Professeurs de : {subject.name}</h3>
-              </div>
-              <div className="space-y-4">
-                  {subjectTeachers.map(teacher => (
-                      <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={handleUnassign}/>
-                  ))}
-              </div>
-            </Card>
-        ))}
+                        {/* Teacher dropzones for this subject group */}
+                        <div className="space-y-4 md:col-span-2">
+                            <h4 className="font-semibold mb-2">Professeurs de {subject.name}</h4>
+                            {subjectTeachers.map(teacher => (
+                                <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={handleUnassign}/>
+                            ))}
+                        </div>
+                    </div>
+                </Card>
+            )
+        })}
       </div>
     </DndContext>
   );
