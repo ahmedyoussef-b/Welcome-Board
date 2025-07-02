@@ -175,17 +175,25 @@ const InteractiveEmptyCell: React.FC<{
         data: { day, time: timeSlot }
     });
 
+    // Guard against undefined wizardData or its properties
+    if (!wizardData) return <div ref={setNodeRef} className="h-24 w-full" />;
+
     const { school, subjects, teachers, rooms, teacherConstraints = [] } = wizardData;
 
     const availableRooms = useMemo(() => {
-        if (!Array.isArray(rooms)) return [];
+        if (!Array.isArray(rooms) || !Array.isArray(schedule)) return [];
+        
         const occupiedRoomIds = new Set(
-            schedule.filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId).map(l => l.classroomId)
+            schedule
+                .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
+                .map(l => l.classroomId!)
         );
         return rooms.filter(room => !occupiedRoomIds.has(room.id));
     }, [day, timeSlot, schedule, rooms]);
 
     const availableSubjects = useMemo(() => {
+        if (!Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(schedule)) return [];
+
         if (viewMode !== 'class' || !selectedViewId) return [];
         const classIdNum = parseInt(selectedViewId, 10);
         if (isNaN(classIdNum)) return [];
@@ -197,12 +205,14 @@ const InteractiveEmptyCell: React.FC<{
 
         return subjects.filter(subject => {
             const isTeacherAvailable = teachers.some(teacher => {
+                if (!Array.isArray(teacher.subjects)) return false;
                 const canTeach = teacher.subjects.some(s => s.id === subject.id);
                 if (!canTeach) return false;
 
                 const isBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot);
                 if (isBusy) return false;
 
+                if (!school) return false;
                 const [hour, minute] = timeSlot.split(':').map(Number);
                 const lessonEndTimeDate = new Date(Date.UTC(0, 0, 0, hour, minute + school.sessionDuration));
                 const lessonEndTimeStr = `${String(lessonEndTimeDate.getUTCHours()).padStart(2, '0')}:${String(lessonEndTimeDate.getUTCMinutes()).padStart(2, '0')}`;
@@ -212,7 +222,7 @@ const InteractiveEmptyCell: React.FC<{
             });
             return isTeacherAvailable;
         });
-    }, [day, timeSlot, schedule, wizardData, selectedViewId, viewMode]);
+    }, [day, timeSlot, schedule, wizardData, selectedViewId, viewMode, subjects, teachers, school]);
 
     return (
         <div ref={setNodeRef} className="h-24 w-full rounded-md transition-colors relative group p-1">
