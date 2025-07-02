@@ -90,12 +90,11 @@ export const teachersSlice = createSlice({
         const { teacherId, classData } = action.payload;
         state.items = state.items.map(teacher => {
             if (teacher.id === teacherId) {
-                // Avoid adding duplicates
-                if (teacher.classes.some(c => c.id === classData.id)) {
-                    return teacher;
-                }
-                const updatedClasses = [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name));
-                return { ...teacher, classes: updatedClasses };
+                // Return a new teacher object with a new classes array
+                return {
+                    ...teacher,
+                    classes: [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name))
+                };
             }
             return teacher;
         });
@@ -104,8 +103,11 @@ export const teachersSlice = createSlice({
         const { teacherId, classId } = action.payload;
         state.items = state.items.map(teacher => {
             if (teacher.id === teacherId) {
-                const updatedClasses = teacher.classes.filter(c => c.id !== classId);
-                return { ...teacher, classes: updatedClasses };
+                // Return a new teacher object with a new, filtered classes array
+                return {
+                    ...teacher,
+                    classes: teacher.classes.filter(c => c.id !== classId)
+                };
             }
             return teacher;
         });

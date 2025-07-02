@@ -1,7 +1,7 @@
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,6 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { useToast } from '@/hooks/use-toast';
-
 
 // --- Internal Components for Drag and Drop ---
 
@@ -71,46 +70,49 @@ function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails,
 
 interface TeachersFormProps {
   data: TeacherWithDetails[];
-  allSubjects: Subject[];
 }
 
-const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects }) => {
+const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers }) => {
   const dispatch = useAppDispatch();
   const allClasses = useAppSelector(selectAllClasses);
   const { toast } = useToast();
 
-  const subjectsWithTeachers = (() => {
+  const subjectsWithTeachers = useMemo(() => {
     const map = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
-    teachers.forEach(teacher => {
-      teacher.subjects.forEach(subject => {
-        if (!map.has(subject.id)) {
-          map.set(subject.id, { subject, teachers: [] });
+    allSubjects.forEach(subject => {
+        const teachersForSubject = teachers.filter(teacher => teacher.subjects.some(s => s.id === subject.id));
+        if (teachersForSubject.length > 0) {
+            map.set(subject.id, { subject, teachers: teachersForSubject });
         }
-        map.get(subject.id)!.teachers.push(teacher);
-      });
     });
     return Array.from(map.values());
-  })();
+  }, [teachers, allSubjects]);
+
+  const allAssignedClassIds = useMemo(() => {
+    return new Set(teachers.flatMap(t => t.classes.map(c => c.id)));
+  }, [teachers]);
+
+  const unassignedClasses = useMemo(() => {
+    return allClasses.filter(c => !allAssignedClassIds.has(c.id));
+  }, [allClasses, allAssignedClassIds]);
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over) {
-        return;
-    };
+    if (!over) return;
 
     const classData = active.data.current?.classData as ClassWithGrade | undefined;
     const teacherId = over.data.current?.teacherId as string | undefined;
 
     if (classData && teacherId) {
-        const teacher = teachers.find(t => t.id === teacherId);
-        if (teacher && teacher.classes.some(c => c.id === classData.id)) {
-            toast({
-                variant: 'destructive',
-                title: 'Assignation impossible',
-                description: `La classe ${classData.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
-            });
-            return;
-        }
+      const teacher = teachers.find(t => t.id === teacherId);
+      if (teacher && teacher.classes.some(c => c.id === classData.id)) {
+          toast({
+              variant: 'destructive',
+              title: 'Assignation impossible',
+              description: `La classe ${classData.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
+          });
+          return;
+      }
       dispatch(assignClassToTeacher({ teacherId, classData }));
     }
   };
@@ -130,36 +132,35 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects
             <p className="text-sm text-muted-foreground">L'ajout et la modification détaillée des enseignants se font désormais dans la section "Enseignants" du menu principal pour une meilleure expérience.</p>
         </Card>
 
-        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => {
-          const assignedClassIds = new Set(teachers.flatMap(t => t.classes.map(c => c.id)));
-          const unassignedClasses = allClasses.filter(c => !assignedClassIds.has(c.id));
+        {/* Global Unassigned Classes Panel */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-2">Classes non assignées ({unassignedClasses.length})</h3>
+          <p className="text-sm text-muted-foreground mb-4">Glissez une classe vers un professeur pour l'assigner.</p>
+          <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[300px] overflow-y-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+            {unassignedClasses.length > 0 ? (
+              unassignedClasses.map(cls => <DraggableClass key={cls.id} classData={cls} />)
+            ) : (
+              <p className="text-sm text-muted-foreground col-span-full text-center pt-8">
+                Toutes les classes ont été assignées.
+              </p>
+            )}
+          </div>
+        </Card>
 
-          return (
+        {/* Loop for subject groups, rendering only teachers */}
+        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => (
             <Card key={subject.id} className="p-6">
               <div className="flex items-center space-x-2 mb-4">
                 <BookOpen className="text-primary" size={20} />
-                <h3 className="text-lg font-semibold">Assignation pour : {subject.name}</h3>
+                <h3 className="text-lg font-semibold">Professeurs de : {subject.name}</h3>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-1">
-                  <h4 className="font-medium mb-2">Classes non assignées</h4>
-                  <div className="p-4 border rounded-lg bg-background min-h-[200px] max-h-[400px] overflow-y-auto space-y-2">
-                    {unassignedClasses.length > 0 ? unassignedClasses.map(cls => (
-                      <DraggableClass key={cls.id} classData={cls} />
-                    )) : <p className="text-sm text-muted-foreground text-center pt-8">Toutes les classes ont été assignées pour cette matière.</p>}
-                  </div>
-                </div>
-                <div className="md:col-span-2 space-y-4">
-                    <h4 className="font-medium mb-2">Professeurs de {subject.name}</h4>
-                    {subjectTeachers.map(teacher => (
+              <div className="space-y-4">
+                  {subjectTeachers.map(teacher => (
                       <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={handleUnassign}/>
-                    ))}
-                </div>
+                  ))}
               </div>
             </Card>
-          );
-        })}
+        ))}
       </div>
     </DndContext>
   );
