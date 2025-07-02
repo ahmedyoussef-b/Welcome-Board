@@ -111,7 +111,7 @@ const RoomSelectorPopover: React.FC<{
             .map(l => l.classroomId) as number[];
     }, [day, timeSlot, fullSchedule, lesson]);
 
-    const availableRooms = wizardData.rooms.filter(room => !occupiedRoomIds.includes(room.id));
+    const availableRooms = (wizardData?.rooms || []).filter(room => !occupiedRoomIds.includes(room.id));
     
     const handleRoomChange = (newRoomId: number | null) => {
         if (!lesson) return;
