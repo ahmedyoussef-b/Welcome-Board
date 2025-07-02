@@ -95,10 +95,10 @@ export const scheduleSlice = createSlice({
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
-      const indexToRemove = state.items.findIndex(lesson => lesson.id === action.payload);
-      if (indexToRemove !== -1) {
-        state.items.splice(indexToRemove, 1);
-      }
+      // Reverted to .filter() for robust, immutable state updates.
+      // This is the safest way to remove an item from an array in Redux
+      // and prevents UI inconsistencies on re-render.
+      state.items = state.items.filter(lesson => lesson.id !== action.payload);
     },
     extendLesson(state, action: PayloadAction<{ lessonId: number }>) {
       const lesson = state.items.find(l => l.id === action.payload.lessonId);
