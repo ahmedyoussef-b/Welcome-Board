@@ -1,7 +1,7 @@
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -174,9 +174,8 @@ const InteractiveEmptyCell: React.FC<{
         disabled: isDropDisabled,
     });
     
-    const { rooms = [], subjects = [], teachers = [], school, teacherConstraints = [] } = wizardData;
-
     const availableRooms = useMemo(() => {
+        const rooms = wizardData?.rooms ?? [];
         if (!Array.isArray(fullSchedule) || !Array.isArray(rooms)) return [];
         
         const occupiedRoomIds = new Set(
@@ -185,28 +184,81 @@ const InteractiveEmptyCell: React.FC<{
                 .map(l => l.classroomId!)
         );
         return rooms.filter(room => !occupiedRoomIds.has(room.id));
-    }, [day, timeSlot, fullSchedule, rooms]);
+    }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableSubjects = useMemo(() => {
-        if (viewMode !== 'class' || !selectedViewId || !school || !Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(fullSchedule)) return [];
-        
+        if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.school) return [];
+        const { school, teachers, rooms, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [] } = wizardData;
+        if (!Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(rooms) || !Array.isArray(lessonRequirements) || !Array.isArray(fullSchedule)) return [];
+
         const classIdNum = parseInt(selectedViewId, 10);
         if (isNaN(classIdNum)) return [];
-        
-        return subjects.filter(subject => {
-            return teachers.some(teacher => {
-                if (!teacher.subjects.some(s => s.id === subject.id)) return false;
-                
-                if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
 
-                const [hour, minute] = timeSlot.split(':').map(Number);
-                const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + school.sessionDuration));
-                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+        const scheduledHoursBySubject = fullSchedule
+            .filter(l => l.classId === classIdNum)
+            .reduce((acc, l) => {
+                acc[l.subjectId] = (acc[l.subjectId] || 0) + 1; // Assuming 1 lesson = 1 hour from sessionDuration
+                return acc;
+            }, {} as Record<number, number>);
+
+        return subjects.filter(subject => {
+            // 1. Check weekly hours constraint
+            const requirement = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id);
+            const requiredHours = requirement ? requirement.hours : (subject.weeklyHours || 0);
+            const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
+            if (requiredHours > 0 && scheduledHours >= requiredHours) {
+                return false;
+            }
+
+            // 2. Check time preference constraint
+            const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
+            if (subjectReq) {
+                const amSlots = ['08:00', '09:00', '10:00', '11:00'];
+                const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
+                if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) {
+                    return false;
+                }
+                if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) {
+                    return false;
+                }
+            }
+
+            // 3. Check for at least one available teacher and room combination
+            const canBePlaced = teachers.some(teacher => {
+                // Can teacher teach this subject?
+                if (!teacher.subjects.some(s => s.id === subject.id)) return false;
+
+                // Is teacher busy with another lesson at this time?
+                if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
                 
-                return !findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints);
+                // Does teacher have a personal time constraint?
+                const [hour, minute] = timeSlot.split(':').map(Number);
+                const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
+                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+                if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
+                    return false;
+                }
+
+                // Is a required room available?
+                if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any') {
+                    const isRoomOccupied = fullSchedule.some(
+                        l => l.day === day &&
+                             formatTimeSimple(l.startTime) === timeSlot &&
+                             l.classroomId === subjectReq.requiredRoomId
+                    );
+                    if (isRoomOccupied) {
+                        return false; // The specific required room is taken
+                    }
+                }
+                
+                // If we passed all checks for this teacher, it means this subject can be placed
+                return true;
             });
+
+            return canBePlaced;
         });
-    }, [day, timeSlot, fullSchedule, school, subjects, teachers, teacherConstraints, selectedViewId, viewMode]);
+    }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
+
 
     return (
         <div ref={setNodeRef} className="h-24 w-full rounded-md transition-colors relative group p-1">
@@ -277,6 +329,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
 
   const { scheduleGrid, spannedSlots } = useMemo(() => {
+    if (!Array.isArray(scheduleData) || !wizardData || !wizardData.school) return { scheduleGrid: {}, spannedSlots: new Set() };
     const mergedLessons = mergeConsecutiveLessons(scheduleData, wizardData);
     const grid: { [key: string]: { lesson: Lesson, rowSpan: number } } = {};
     const localSpannedSlots = new Set<string>();
