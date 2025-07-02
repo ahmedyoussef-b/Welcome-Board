@@ -1,214 +1,165 @@
-
 // src/components/wizard/TeachersForm.tsx
-import React, { useState } from 'react';
+'use client';
+
+import React, { useMemo, useState } from 'react';
+import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { UserPlus, Trash2, Calendar, Loader2 } from 'lucide-react';
-import { useAppDispatch } from '@/hooks/redux-hooks';
-import { addProfesseur, deleteProfesseur } from '@/lib/redux/features/teachers/teachersSlice';
-import type { TeacherWithDetails, CreateTeacherPayload, Subject, ClassWithGrade } from '@/types';
+import { GripVertical, BookOpen, Trash2, UserPlus } from 'lucide-react';
+import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
+import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
+import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { useToast } from '@/hooks/use-toast';
-import FormModal from '@/components/FormModal';
+
+
+// --- Internal Components for Drag and Drop ---
+
+function DraggableClass({ classData }: { classData: ClassWithGrade }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `class-${classData.id}`,
+    data: { classData },
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    zIndex: 10,
+    opacity: isDragging ? 0.5 : 1,
+  } : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="p-2 border rounded-md bg-background flex items-center gap-2 cursor-grab active:cursor-grabbing active:shadow-lg"
+      {...listeners}
+      {...attributes}
+    >
+      <GripVertical className="h-4 w-4 text-muted-foreground" />
+      <span className="text-sm font-medium">{classData.name}</span>
+    </div>
+  );
+}
+
+function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails, onUnassign: (classId: number) => void }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `teacher-${teacher.id}`,
+    data: { teacherId: teacher.id },
+  });
+
+  return (
+    <div ref={setNodeRef} className={`p-4 rounded-lg border transition-colors ${isOver ? 'bg-primary/20 border-primary' : 'bg-muted/50'}`}>
+      <h4 className="font-semibold">{teacher.name} {teacher.surname}</h4>
+      <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]">
+        {teacher.classes.map(cls => (
+          <Badge key={cls.id} variant="secondary" className="flex items-center gap-1">
+            {cls.name}
+            <button onClick={() => onUnassign(cls.id)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5">
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </button>
+          </Badge>
+        ))}
+        {teacher.classes.length === 0 && <p className="text-xs text-muted-foreground">Déposer des classes ici</p>}
+      </div>
+    </div>
+  );
+}
+
+
+// --- Main Form Component ---
 
 interface TeachersFormProps {
   data: TeacherWithDetails[];
   allSubjects: Subject[];
-  allClasses: ClassWithGrade[];
 }
 
-const TeachersForm: React.FC<TeachersFormProps> = ({ data, allSubjects, allClasses }) => {
+const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects }) => {
   const dispatch = useAppDispatch();
+  const allClasses = useAppSelector(selectAllClasses);
   const { toast } = useToast();
-  const [newTeacher, setNewTeacher] = useState<CreateTeacherPayload>({
-    email: '',
-    username: '',
-    name: '',
-    surname: '',
-    phone: '',
-    address: '',
-    subjects: [],
-    classes: [],
-  });
-  const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddTeacher = async () => {
-    if (isAdding || !newTeacher.name || !newTeacher.surname || !newTeacher.email || !newTeacher.username) return;
-    
-    const emailExists = data.some(t => t.user?.email.trim().toLowerCase() === newTeacher.email.trim().toLowerCase());
-    if (emailExists) {
-      toast({
-        variant: 'destructive',
-        title: 'Email existant',
-        description: `Un enseignant avec l'email "${newTeacher.email}" existe déjà.`,
+  const subjectsWithTeachers = useMemo(() => {
+    const map = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
+    teachers.forEach(teacher => {
+      teacher.subjects.forEach(subject => {
+        if (!map.has(subject.id)) {
+          map.set(subject.id, { subject, teachers: [] });
+        }
+        map.get(subject.id)!.teachers.push(teacher);
       });
-      return;
+    });
+    return Array.from(map.values());
+  }, [teachers]);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const classData = active.data.current?.classData as ClassWithGrade | undefined;
+    const teacherId = over.data.current?.teacherId as string | undefined;
+
+    if (classData && teacherId) {
+        const teacher = teachers.find(t => t.id === teacherId);
+        if (teacher && teacher.classes.some(c => c.id === classData.id)) {
+            toast({
+                variant: 'destructive',
+                title: 'Assignation impossible',
+                description: `La classe ${classData.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
+            });
+            return;
+        }
+      dispatch(assignClassToTeacher({ teacherId, classData }));
     }
-
-    const usernameExists = data.some(t => t.user?.username.trim().toLowerCase() === newTeacher.username.trim().toLowerCase());
-    if (usernameExists) {
-      toast({
-        variant: 'destructive',
-        title: "Nom d'utilisateur existant",
-        description: `Un enseignant avec le nom d'utilisateur "${newTeacher.username}" existe déjà.`,
-      });
-      return;
-    }
-
-    setIsAdding(true);
-    const result = await dispatch(addProfesseur(newTeacher));
-    setIsAdding(false);
-
-    if (addProfesseur.fulfilled.match(result)) {
-      toast({
-        title: 'Enseignant ajouté',
-        description: `Le profil pour ${result.payload.name} ${result.payload.surname} a été créé.`,
-      });
-      setNewTeacher({ email: '', username: '', name: '', surname: '', phone: '', address: '', subjects: [], classes: [] });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: "Erreur d'ajout",
-        description: (result.payload as string) || 'Une erreur est survenue.',
-      });
-    }
-  };
-
-  const handleDeleteTeacher = (id: string) => {
-    dispatch(deleteProfesseur(id));
   };
   
-  const handleSubjectSelection = (subjectId: string) => {
-    const currentSubjects = newTeacher.subjects || [];
-    const updatedSubjects = currentSubjects.includes(subjectId)
-      ? currentSubjects.filter(id => id !== subjectId)
-      : [...currentSubjects, subjectId];
-    setNewTeacher(prev => ({ ...prev, subjects: updatedSubjects }));
-  };
-
-  const handleClassSelection = (classId: string) => {
-    const currentClasses = newTeacher.classes || [];
-    const updatedClasses = currentClasses.includes(classId)
-      ? currentClasses.filter(id => id !== classId)
-      : [...currentClasses, classId];
-    setNewTeacher(prev => ({ ...prev, classes: updatedClasses }));
+  const handleUnassign = (teacherId: string, classId: number) => {
+      dispatch(unassignClassFromTeacher({ teacherId, classId }));
   };
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center space-x-2 mb-4">
-          <UserPlus className="text-primary" size={20} />
-          <h3 className="text-lg font-semibold">Ajouter un enseignant</h3>
-        </div>
-        
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Prénom</Label><Input value={newTeacher.name} onChange={(e) => setNewTeacher({...newTeacher, name: e.target.value})} placeholder="AHMED" className="mt-1" disabled={isAdding}/></div>
-            <div><Label>Nom</Label><Input value={newTeacher.surname} onChange={(e) => setNewTeacher({...newTeacher, surname: e.target.value})} placeholder="ABBES" className="mt-1" disabled={isAdding}/></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Email</Label><Input type="email" value={newTeacher.email} onChange={(e) => setNewTeacher({...newTeacher, email: e.target.value})} placeholder="ahmedyoussefabbes@gmail.com" className="mt-1" disabled={isAdding}/></div>
-            <div><Label>Nom d'utilisateur</Label><Input value={newTeacher.username} onChange={(e) => setNewTeacher({...newTeacher, username: e.target.value})} placeholder="ABBES" className="mt-1" disabled={isAdding}/></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><Label>Téléphone (Optionnel)</Label><Input value={newTeacher.phone} onChange={(e) => setNewTeacher({...newTeacher, phone: e.target.value})} className="mt-1" disabled={isAdding}/></div>
-            <div><Label>Adresse (Optionnel)</Label><Input value={newTeacher.address} onChange={(e) => setNewTeacher({...newTeacher, address: e.target.value})} className="mt-1" disabled={isAdding}/></div>
-          </div>
-          <div>
-            <Label>Matières enseignées</Label>
-            <div className="flex flex-wrap gap-2 mt-2 p-2 border rounded-md min-h-[40px]">
-                {allSubjects.map(subject => (
-                    <Button 
-                      key={subject.id}
-                      type="button"
-                      variant={(newTeacher.subjects || []).includes(String(subject.id)) ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleSubjectSelection(String(subject.id))}
-                    >
-                      {subject.name}
-                    </Button>
-                ))}
+    <DndContext onDragEnd={handleDragEnd}>
+      <div className="space-y-8">
+        <Card className="p-6">
+            <div className="flex items-center space-x-2 mb-4">
+                <UserPlus className="text-primary" size={20} />
+                <h3 className="text-lg font-semibold">Gérer les enseignants</h3>
             </div>
-          </div>
-           <div>
-            <Label>Classes assignées (Optionnel)</Label>
-            <div className="flex flex-wrap gap-2 mt-2 p-2 border rounded-md min-h-[40px]">
-                {allClasses.map(cls => (
-                    <Button 
-                      key={cls.id}
-                      type="button"
-                      variant={(newTeacher.classes || []).includes(String(cls.id)) ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handleClassSelection(String(cls.id))}
-                    >
-                      {cls.name}
-                    </Button>
-                ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Si aucune classe n'est assignée, l'enseignant sera considéré comme disponible pour toutes les classes.</p>
-          </div>
+            <p className="text-sm text-muted-foreground">L'ajout et la modification détaillée des enseignants se font désormais dans la section "Enseignants" du menu principal pour une meilleure expérience.</p>
+        </Card>
 
-          <Button onClick={handleAddTeacher} disabled={isAdding || !newTeacher.name || !newTeacher.surname || !newTeacher.email || !newTeacher.username} className="w-full">
-            {isAdding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isAdding ? 'Ajout en cours...' : "Ajouter l'enseignant"}
-          </Button>
-        </div>
-      </Card>
+        {subjectsWithTeachers.map(({ subject, teachers: subjectTeachers }) => {
+          const assignedClassIds = new Set(teachers.flatMap(t => t.classes.map(c => c.id)));
+          const unassignedClasses = allClasses.filter(c => !assignedClassIds.has(c.id));
 
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="text-primary" size={20} />
-            <h3 className="text-lg font-semibold">Enseignants configurés ({data.length})</h3>
-          </div>
-        </div>
-        
-        {data.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground"><Calendar size={48} className="mx-auto mb-4 text-muted" /><p>Aucun enseignant configuré</p><p className="text-sm">Commencez par créer un profil</p></div>
-        ) : (
-          <div className="space-y-4">
-            {data.map((teacher) => (
-              <Card key={teacher.id} className="p-4 hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2 mb-2"><h4 className="font-semibold text-lg">{teacher.name} {teacher.surname}</h4></div>
-                    <div className="space-y-2">
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Matières enseignées:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {teacher.subjects.length > 0 ? teacher.subjects.map(subject => <Badge key={subject.id} variant="secondary" className="text-xs">{subject.name}</Badge>) : <span className="text-xs text-muted-foreground">Aucune</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground mb-1">Classes assignées:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {teacher.classes.length > 0 ? teacher.classes.map(cls => <Badge key={cls.id} variant="outline" className="text-xs">{cls.name}</Badge>) : <span className="text-xs text-muted-foreground">Toutes (flottant)</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <FormModal 
-                        table="teacher"
-                        type="update"
-                        data={teacher}
-                        relatedData={{
-                            subjects: allSubjects,
-                            classes: allClasses,
-                        }}
-                    />
-                    <Button variant="ghost" size="sm" onClick={() => handleDeleteTeacher(teacher.id)} className="text-destructive hover:text-destructive/90"><Trash2 size={16} /></Button>
+          return (
+            <Card key={subject.id} className="p-6">
+              <div className="flex items-center space-x-2 mb-4">
+                <BookOpen className="text-primary" size={20} />
+                <h3 className="text-lg font-semibold">Assignation pour : {subject.name}</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-1">
+                  <h4 className="font-medium mb-2">Classes non assignées</h4>
+                  <div className="p-4 border rounded-lg bg-background min-h-[200px] max-h-[400px] overflow-y-auto space-y-2">
+                    {unassignedClasses.length > 0 ? unassignedClasses.map(cls => (
+                      <DraggableClass key={cls.id} classData={cls} />
+                    )) : <p className="text-sm text-muted-foreground text-center pt-8">Toutes les classes ont été assignées pour cette matière.</p>}
                   </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </Card>
-    </div>
+                <div className="md:col-span-2 space-y-4">
+                    <h4 className="font-medium mb-2">Professeurs de {subject.name}</h4>
+                    {subjectTeachers.map(teacher => (
+                      <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={(classId) => handleUnassign(teacher.id, classId)}/>
+                    ))}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </DndContext>
   );
 };
 

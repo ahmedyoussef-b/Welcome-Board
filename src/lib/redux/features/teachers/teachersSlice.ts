@@ -1,7 +1,6 @@
-
 // src/lib/redux/features/teachers/teachersSlice.ts
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
-import type { TeacherWithDetails, CreateTeacherPayload } from '@/types'; 
+import type { TeacherWithDetails, CreateTeacherPayload, ClassWithGrade } from '@/types'; 
 
 export type TeachersState = {
   items: Array<TeacherWithDetails>;
@@ -87,6 +86,22 @@ export const teachersSlice = createSlice({
       state.items = action.payload;
       state.status = 'succeeded';
     },
+    assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
+        const { teacherId, classData } = action.payload;
+        const teacher = state.items.find(t => t.id === teacherId);
+        if (teacher) {
+            if (!teacher.classes.some(c => c.id === classData.id)) {
+                teacher.classes.push(classData);
+            }
+        }
+    },
+    unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
+        const { teacherId, classId } = action.payload;
+        const teacher = state.items.find(t => t.id === teacherId);
+        if (teacher) {
+            teacher.classes = teacher.classes.filter(c => c.id !== classId);
+        }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -120,6 +135,6 @@ export const teachersSlice = createSlice({
   }
 });
 
-export const { setAllTeachers } = teachersSlice.actions;
+export const { setAllTeachers, assignClassToTeacher, unassignClassFromTeacher } = teachersSlice.actions;
 export const { selectAllProfesseurs, getProfesseursStatus, getProfesseursError } = teachersSlice.selectors;
 export default teachersSlice.reducer;
