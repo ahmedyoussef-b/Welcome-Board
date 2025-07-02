@@ -8,6 +8,37 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Subject } from '@/types';
+import { useDraggable } from '@dnd-kit/core';
+
+const DraggableSubject = ({ subject, isSelected, onClick }: { subject: Subject, isSelected: boolean, onClick: (subject: Subject) => void }) => {
+    const { attributes, listeners, setNodeRef, transform } = useDraggable({
+        id: `subject-${subject.id}`,
+        data: { type: 'subject', subject },
+    });
+
+    const style = transform ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        zIndex: 100, // Make sure it's on top when dragging
+    } : undefined;
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            {...listeners}
+            {...attributes}
+            onClick={() => onClick(subject)}
+            className={cn(
+                "p-3 mb-2 border rounded-md bg-card flex items-center gap-2 cursor-grab transition-colors",
+                isSelected ? "ring-2 ring-primary bg-primary/10" : "hover:bg-muted"
+            )}
+            title={`${subject.name} - Cliquez pour sélectionner`}
+        >
+            <span className="text-sm font-medium">{subject.name}</span>
+        </div>
+    );
+};
+
 
 export function ScheduleSidebar({ subjects }: { subjects: Subject[] }) {
     const dispatch = useAppDispatch();
@@ -20,7 +51,7 @@ export function ScheduleSidebar({ subjects }: { subjects: Subject[] }) {
         if (isCurrentlySelected) {
             toast({ title: "Sélection annulée" });
         } else {
-            toast({ title: `"${subject.name}" sélectionné`, description: "Double-cliquez sur un créneau disponible pour l'assigner." });
+            toast({ title: `"${subject.name}" sélectionné`, description: "Cliquez sur un créneau disponible pour placer le cours." });
         }
     };
 
@@ -28,7 +59,7 @@ export function ScheduleSidebar({ subjects }: { subjects: Subject[] }) {
         <Card className="w-full print-hidden">
             <CardHeader>
                 <CardTitle>Matières</CardTitle>
-                <CardDescription>Cliquez pour sélectionner/désélectionner une matière.</CardDescription>
+                <CardDescription>Cliquez pour sélectionner, puis cliquez sur un créneau pour placer.</CardDescription>
             </CardHeader>
             <CardContent>
                 <ScrollArea className="h-[60vh]">
@@ -36,17 +67,12 @@ export function ScheduleSidebar({ subjects }: { subjects: Subject[] }) {
                         {subjects.map(subject => {
                             const isSelected = subject.id === selectedSubject?.id;
                             return (
-                                <div
+                                <DraggableSubject 
                                     key={subject.id}
-                                    onClick={() => handleSubjectClick(subject)}
-                                    className={cn(
-                                        "p-3 mb-2 border rounded-md bg-card flex items-center gap-2 cursor-pointer transition-colors",
-                                        isSelected ? "ring-2 ring-primary bg-primary/10" : "hover:bg-muted"
-                                    )}
-                                    title={`${subject.name} - Cliquez pour sélectionner`}
-                                >
-                                    <span className="text-sm font-medium">{subject.name}</span>
-                                </div>
+                                    subject={subject}
+                                    isSelected={isSelected}
+                                    onClick={handleSubjectClick}
+                                />
                             )
                         })}
                     </div>

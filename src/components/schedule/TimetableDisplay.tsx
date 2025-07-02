@@ -14,63 +14,10 @@ import { updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { mergeConsecutiveLessons } from '@/lib/schedule-utils';
 
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
-
-// --- Helper Function to Merge Lessons ---
-const mergeConsecutiveLessons = (lessons: Lesson[], wizardData: WizardData): Lesson[] => {
-    if (!lessons || lessons.length === 0) return [];
-
-    const dayOrder: Day[] = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
-    
-    // Efficiently group lessons by day
-    const lessonsByDay: { [key in Day]?: Lesson[] } = {};
-    for (const lesson of lessons) {
-        if (!lessonsByDay[lesson.day]) {
-            lessonsByDay[lesson.day] = [];
-        }
-        lessonsByDay[lesson.day]!.push(lesson);
-    }
-    
-    const finalMergedLessons: Lesson[] = [];
-    
-    // Process each day independently
-    for (const day of dayOrder) {
-        const dailyLessons = lessonsByDay[day];
-        if (!dailyLessons || dailyLessons.length === 0) continue;
-
-        // Sort a *copy* of the lessons for that day to avoid mutating the original data
-        const sortedDailyLessons = [...dailyLessons].sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
-        
-        const mergedDailyLessons: Lesson[] = [];
-        let i = 0;
-        while (i < sortedDailyLessons.length) {
-            let currentLesson = { ...sortedDailyLessons[i] }; // Create a mutable copy
-            let j = i + 1;
-            
-            // Look for consecutive lessons with the same properties
-            while (
-                j < sortedDailyLessons.length &&
-                sortedDailyLessons[j].classId === currentLesson.classId &&
-                sortedDailyLessons[j].subjectId === currentLesson.subjectId &&
-                sortedDailyLessons[j].teacherId === currentLesson.teacherId &&
-                new Date(sortedDailyLessons[j].startTime).getTime() === new Date(currentLesson.endTime).getTime()
-            ) {
-                // Merge by extending the end time
-                currentLesson.endTime = sortedDailyLessons[j].endTime;
-                j++;
-            }
-            
-            mergedDailyLessons.push(currentLesson);
-            i = j; // Move to the next lesson that wasn't merged
-        }
-        finalMergedLessons.push(...mergedDailyLessons);
-    }
-    
-    return finalMergedLessons;
-};
-
 
 const formatUtcTime = (dateString: string | Date): string => {
     const date = new Date(dateString);
@@ -233,13 +180,19 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     );
 };
 
-const DroppableEmptyCell = ({ day, timeSlot, onDoubleClick, isHighlighted, highlightColor }: { day: Day; timeSlot: string; onDoubleClick?: (day: Day, timeSlot: string) => void; isHighlighted?: boolean; highlightColor?: string | null; }) => {
+const DroppableEmptyCell = ({ day, timeSlot, onClick, isHighlighted, highlightColor }: { day: Day; timeSlot: string; onClick?: (day: Day, timeSlot: string) => void; isHighlighted?: boolean; highlightColor?: string | null; }) => {
+    const { setNodeRef, isOver } = useDroppable({
+        id: `empty-${day}-${timeSlot}`,
+        data: { day, time: timeSlot }
+    });
+
     return (
         <div
-            onDoubleClick={() => onDoubleClick?.(day, timeSlot)}
+            ref={setNodeRef}
+            onClick={() => onClick?.(day, timeSlot)}
             className={cn(
                 'h-24 w-full rounded-md transition-colors relative group p-1',
-                isHighlighted 
+                (isHighlighted || isOver)
                   ? `${highlightColor} border-2 border-dashed border-primary animate-subtle-pulse` 
                   : 'hover:bg-muted/50'
             )}
@@ -256,7 +209,7 @@ interface TimetableDisplayProps {
   fullSchedule: Lesson[];
   isEditable?: boolean;
   onDeleteLesson?: (lessonId: number) => void;
-  onEmptyCellDoubleClick?: (day: Day, timeSlot: string) => void;
+  onEmptyCellClick?: (day: Day, timeSlot: string) => void;
   selectedSubject: Subject | null;
   availableSlots: Set<string>;
 }
@@ -267,7 +220,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
     fullSchedule,
     isEditable = false, 
     onDeleteLesson = () => {}, 
-    onEmptyCellDoubleClick,
+    onEmptyCellClick,
     selectedSubject,
     availableSlots,
 }) => {
@@ -290,7 +243,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
       const durationInMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
-      const rowSpan = Math.max(1, Math.round(durationInMinutes / 60));
+      const rowSpan = Math.max(1, Math.round(durationInMinutes / wizardData.school.sessionDuration));
 
       grid[cellId] = { lesson, rowSpan };
 
@@ -374,7 +327,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                                 <DroppableEmptyCell
                                     day={dayEnum}
                                     timeSlot={time}
-                                    onDoubleClick={onEmptyCellDoubleClick}
+                                    onClick={onEmptyCellClick}
                                     isHighlighted={isHighlighted}
                                     highlightColor={highlightColor}
                                 />
