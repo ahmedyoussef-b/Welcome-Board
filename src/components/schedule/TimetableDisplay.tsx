@@ -96,6 +96,11 @@ const RoomSelectorPopover: React.FC<{
         const [hour, minute] = timeSlot.split(':').map(Number);
         const checkTime = new Date(Date.UTC(1970, 0, 1, hour, minute)).getTime();
         
+        // Defensive check for fullSchedule
+        if (!fullSchedule || !Array.isArray(fullSchedule)) {
+            return [];
+        }
+
         return fullSchedule
             .filter(l => {
                 if (lesson && l.id === lesson.id) return false;
@@ -110,8 +115,14 @@ const RoomSelectorPopover: React.FC<{
             })
             .map(l => l.classroomId) as number[];
     }, [day, timeSlot, fullSchedule, lesson]);
-
-    const availableRooms = (wizardData?.rooms || []).filter(room => !occupiedRoomIds.includes(room.id));
+    
+    const availableRooms = useMemo(() => {
+        // Defensive check for wizardData.rooms
+        if (!wizardData || !Array.isArray(wizardData.rooms)) {
+            return [];
+        }
+        return wizardData.rooms.filter(room => !occupiedRoomIds.includes(room.id));
+    }, [wizardData, occupiedRoomIds]);
     
     const handleRoomChange = (newRoomId: number | null) => {
         if (!lesson) return;
