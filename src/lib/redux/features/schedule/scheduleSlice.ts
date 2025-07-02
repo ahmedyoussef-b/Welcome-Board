@@ -95,7 +95,10 @@ export const scheduleSlice = createSlice({
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
-      state.items = state.items.filter(lesson => lesson.id !== action.payload);
+      const indexToRemove = state.items.findIndex(lesson => lesson.id === action.payload);
+      if (indexToRemove !== -1) {
+        state.items.splice(indexToRemove, 1);
+      }
     },
     extendLesson(state, action: PayloadAction<{ lessonId: number }>) {
       const lesson = state.items.find(l => l.id === action.payload.lessonId);
