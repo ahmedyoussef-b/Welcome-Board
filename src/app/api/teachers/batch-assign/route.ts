@@ -13,79 +13,80 @@ const batchAssignSchema = z.array(assignmentSchema);
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[API/batch-assign] Received POST request.");
     const body = await request.json();
     const validation = batchAssignSchema.safeParse(body);
 
     if (!validation.success) {
+      console.error("[API/batch-assign] Validation Error:", validation.error.flatten());
       return NextResponse.json({ message: "Données d'entrée invalides", errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
 
     const assignments = validation.data;
+    console.log(`[API/batch-assign] Validated payload with ${assignments.length} assignment groups.`);
     
-    // Validate that all teachers and classes exist before starting the transaction
+    // --- Pre-transaction validation ---
     const teacherIds = assignments.map(a => a.teacherId);
     const classIds = Array.from(new Set(assignments.flatMap(a => a.classIds)));
 
     if (teacherIds.length > 0) {
         const existingTeachersCount = await prisma.teacher.count({ where: { id: { in: teacherIds } } });
         if (existingTeachersCount !== teacherIds.length) {
+            console.error("[API/batch-assign] Validation Error: One or more teacher IDs are invalid.");
             return NextResponse.json({ message: "Un ou plusieurs IDs d'enseignants sont invalides." }, { status: 400 });
         }
     }
     if (classIds.length > 0) {
         const existingClassesCount = await prisma.class.count({ where: { id: { in: classIds } } });
         if (existingClassesCount !== classIds.length) {
+            console.error("[API/batch-assign] Validation Error: One or more class IDs are invalid.");
             return NextResponse.json({ message: "Un ou plusieurs IDs de classes sont invalides." }, { status: 400 });
         }
     }
+    console.log("[API/batch-assign] Pre-transaction validation passed.");
     // --- End Validation ---
 
     await prisma.$transaction(async (tx) => {
-      // Step 1: For each teacher in the payload, find the classes they currently supervise
-      // and un-assign any that are NOT in their new assignment list.
-      for (const assignment of assignments) {
-        const { teacherId, classIds: newClassIds } = assignment;
-        
-        const supervisedClasses = await tx.class.findMany({
-          where: { supervisorId: teacherId },
-          select: { id: true },
-        });
-        const currentClassIds = supervisedClasses.map(c => c.id);
+      console.log("[API/batch-assign] Starting transaction.");
+      
+      // Step 1: Clear all supervisor assignments for the teachers involved in this batch update.
+      // This prevents unique constraint violations if a class is moved from one teacher to another within the same batch.
+      console.log(`[API/batch-assign] Step 1: Clearing current assignments for ${teacherIds.length} teachers.`);
+      await tx.class.updateMany({
+        where: {
+          supervisorId: {
+            in: teacherIds,
+          },
+        },
+        data: {
+          supervisorId: null,
+        },
+      });
+      console.log("[API/batch-assign] Step 1: Assignments cleared.");
 
-        const classesToUnassign = currentClassIds.filter(id => !newClassIds.includes(id));
-        
-        if (classesToUnassign.length > 0) {
-          await tx.class.updateMany({
-            where: { id: { in: classesToUnassign } },
-            data: { supervisorId: null },
-          });
-        }
-      }
-
-      // Step 2: Now, assign all the new relationships.
-      // This is done in a second loop to avoid transaction conflicts where one teacher's
-      // un-assignment might interfere with another's assignment.
+      // Step 2: Apply the new assignments.
+      console.log("[API/batch-assign] Step 2: Applying new assignments.");
       for (const assignment of assignments) {
         const { teacherId, classIds: newClassIds } = assignment;
 
         if (newClassIds.length > 0) {
-          // This operation is safe because any previous supervisor of these classes
-          // (if they were in our teacher list) would have been cleared in Step 1.
-          // If the supervisor was NOT in our list, this update is still valid.
+          console.log(`[API/batch-assign] Assigning ${newClassIds.length} classes to teacher ${teacherId}.`);
           await tx.class.updateMany({
             where: { id: { in: newClassIds } },
             data: { supervisorId: teacherId },
           });
         }
       }
+      console.log("[API/batch-assign] Step 2: New assignments applied.");
+      console.log("[API/batch-assign] Transaction successful.");
     });
 
     return NextResponse.json({ message: "Assignations des professeurs mises à jour avec succès." }, { status: 200 });
 
   } catch (error) {
-    console.error('[API batch-assign] General Error:', error);
+    console.error('[API/batch-assign] An error occurred:', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      console.error('[API batch-assign] Prisma Error:', { code: error.code, meta: error.meta, message: error.message });
+      console.error('[API/batch-assign] Prisma Error:', { code: error.code, meta: error.meta, message: error.message });
       return NextResponse.json({ message: `Erreur de base de données. Code: ${error.code}`, details: error.meta }, { status: 500 });
     }
     const errorMessage = error instanceof Error ? error.message : 'Une erreur interne est survenue.';
