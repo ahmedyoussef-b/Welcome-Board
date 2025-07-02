@@ -78,6 +78,33 @@ export const deleteProfesseur = createAsyncThunk<string, string, { rejectValue: 
     }
 );
 
+export const saveTeacherAssignments = createAsyncThunk<
+  void, 
+  { teacherId: string; classIds: number[] }[],
+  { rejectValue: string }
+>(
+  'teachers/saveAssignments',
+  async (assignments, { rejectWithValue }) => {
+    try {
+      const response = await fetch('/api/teachers/batch-assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assignments),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.message ?? 'Échec de la sauvegarde des assignations');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue('An unknown network error occurred');
+    }
+  }
+);
+
+
 export const teachersSlice = createSlice({
   name: 'teachers',
   initialState,
@@ -88,41 +115,25 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
-
-        // Use map to return a new array, ensuring immutability and triggering re-renders reliably.
-        state.items = state.items.map(teacher => {
-            // If this is not the teacher we're looking for, return it unchanged.
-            if (teacher.id !== teacherId) {
-                return teacher;
-            }
-
-            // This is the teacher to update. Create a new object for it.
-            const updatedTeacher = {
-                ...teacher, // Copy all existing properties
-                classes: [...teacher.classes, classData] // Create a new array for classes
-                    .sort((a, b) => a.name.localeCompare(b.name)), // Sort the new array
-            };
-            
-            return updatedTeacher;
-        });
+        state.items = state.items.map(teacher => 
+            teacher.id !== teacherId
+            ? teacher
+            : {
+                ...teacher,
+                classes: [...teacher.classes, classData].sort((a, b) => a.name.localeCompare(b.name)),
+              }
+        );
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
-
-        // Use map for reliable immutable updates.
-        state.items = state.items.map(teacher => {
-            if (teacher.id !== teacherId) {
-                return teacher;
-            }
-
-            // Create a new teacher object with the class filtered out.
-            const updatedTeacher = {
+        state.items = state.items.map(teacher => 
+            teacher.id !== teacherId
+            ? teacher
+            : {
                 ...teacher,
                 classes: teacher.classes.filter(c => c.id !== classId),
-            };
-            
-            return updatedTeacher;
-        });
+              }
+        );
     },
   },
   extraReducers: (builder) => {
@@ -142,8 +153,18 @@ export const teachersSlice = createSlice({
       .addCase(deleteProfesseur.fulfilled, (state, action: PayloadAction<string>) => {
         state.items = state.items.filter(p => p.id !== action.payload);
       })
+      .addCase(saveTeacherAssignments.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(saveTeacherAssignments.fulfilled, (state) => {
+        state.status = 'succeeded';
+      })
+      .addCase(saveTeacherAssignments.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload ?? 'Failed to save assignments';
+      })
       .addMatcher(
-        (action): action is PayloadAction<string> => action.type.endsWith('/rejected'),
+        (action): action is PayloadAction<string> => action.type.endsWith('/rejected') && !action.type.startsWith('teachers/saveAssignments'),
         (state, action) => {
             state.status = 'failed';
             state.error = action.payload;

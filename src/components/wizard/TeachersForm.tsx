@@ -1,20 +1,20 @@
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trash2, UserPlus, Copy } from 'lucide-react';
+import { BookOpen, Trash2, UserPlus, Copy, Save, Loader2 } from 'lucide-react';
 import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
-import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
+import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs, saveTeacherAssignments } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Button } from '../ui/button';
 
-// --- Internal Components for the new interaction ---
+// --- Internal Components ---
 
 function SelectableClass({ classData, isSelected, onSelect }: { classData: ClassWithGrade; isSelected: boolean; onSelect: (classData: ClassWithGrade, event: React.MouseEvent) => void; }) {
   return (
@@ -71,6 +71,7 @@ const TeachersForm: React.FC = () => {
   const allSubjects = useAppSelector(selectAllMatieres);
 
   const [selectedClasses, setSelectedClasses] = useState<ClassWithGrade[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   const handleSelectClass = (classData: ClassWithGrade, event: React.MouseEvent) => {
     const isAlreadySelected = selectedClasses.some(c => c.id === classData.id);
@@ -103,7 +104,6 @@ const TeachersForm: React.FC = () => {
     const teacher = allTeachers.find(t => t.id === teacherId);
     if (!teacher) return;
     
-    // Assign each selected class
     selectedClasses.forEach(classData => {
         const isAlreadyAssigned = teacher.classes.some(c => c.id === classData.id);
         if (!isAlreadyAssigned) {
@@ -111,21 +111,51 @@ const TeachersForm: React.FC = () => {
         }
     });
 
-    setSelectedClasses([]); // Clear selection after assignment
+    setSelectedClasses([]); 
   };
 
   const handleUnassign = (teacherId: string, classId: number) => {
       dispatch(unassignClassFromTeacher({ teacherId, classId }));
   };
 
+  const handleSaveChanges = async () => {
+    setIsSaving(true);
+    const assignmentPayload = allTeachers.map(teacher => ({
+        teacherId: teacher.id,
+        classIds: teacher.classes.map(cls => cls.id),
+    }));
+
+    const result = await dispatch(saveTeacherAssignments(assignmentPayload));
+    
+    if (saveTeacherAssignments.fulfilled.match(result)) {
+        toast({
+            title: "Sauvegarde réussie",
+            description: "Les assignations des professeurs ont été enregistrées.",
+        });
+    } else {
+        toast({
+            variant: "destructive",
+            title: "Erreur de sauvegarde",
+            description: "Une erreur est survenue lors de la sauvegarde des assignations.",
+        });
+    }
+    setIsSaving(false);
+  };
+
   return (
       <div className="space-y-8">
         <Card className="p-6 sticky top-0 bg-background/90 backdrop-blur-sm z-10">
-            <div className="flex items-center space-x-2 mb-4">
-                <UserPlus className="text-primary" size={20} />
-                <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                    <UserPlus className="text-primary" size={20} />
+                    <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
+                </div>
+                <Button onClick={handleSaveChanges} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    {isSaving ? 'Sauvegarde...' : 'Sauvegarder les Assignations'}
+                </Button>
             </div>
-            <p className="text-sm text-muted-foreground">Cliquez pour sélectionner, Ctrl+Clic pour sélectionner plusieurs. Double-cliquez sur un professeur pour assigner.</p>
+            <p className="text-sm text-muted-foreground">Cliquez pour sélectionner, Ctrl+Clic pour une sélection multiple. Double-cliquez sur un professeur pour assigner.</p>
             {selectedClasses.length > 0 && (
                 <div className="mt-4 p-3 bg-primary/10 rounded-lg flex items-center gap-2 text-primary border border-primary/20">
                     <Copy size={16} />
