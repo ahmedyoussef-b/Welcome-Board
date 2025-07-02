@@ -6,19 +6,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Clock, Calendar, School } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
+import { updateSchoolConfig, selectSchoolConfig, type SchoolData } from '@/lib/redux/features/schoolConfigSlice';
 
-interface SchoolData {
-  name: string;
-  startTime: string;
-  endTime: string;
-  schoolDays: string[];
-  sessionDuration: number;
-}
-
-interface SchoolConfigFormProps {
-  data: SchoolData;
-  onUpdate: (data: SchoolData) => void;
-}
 
 const dayOptions = [
   { id: 'monday', label: 'Lundi' },
@@ -29,12 +19,12 @@ const dayOptions = [
   { id: 'saturday', label: 'Samedi' }
 ];
 
-const SchoolConfigForm: React.FC<SchoolConfigFormProps> = ({ data, onUpdate }) => {
+const SchoolConfigForm: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const data = useAppSelector(selectSchoolConfig);
+
   const handleInputChange = (field: keyof SchoolData, value: any) => {
-    onUpdate({
-      ...data,
-      [field]: value
-    });
+    dispatch(updateSchoolConfig({ [field]: value }));
   };
 
   const handleDayToggle = (dayId: string, checked: boolean) => {

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye, Loader2, Send } from 'lucide-react';
+import { ChevronLeft, ChevronRight, School, Users, BookOpen, Calendar, MapPin, CheckCircle, Puzzle, Eye, Loader2, Send, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
 import { useAppSelector } from '@/hooks/redux-hooks';
@@ -19,7 +19,9 @@ import { selectLessonRequirements } from '@/lib/redux/features/lessonRequirement
 import { selectTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
 import { selectSubjectRequirements } from '@/lib/redux/features/subjectRequirementsSlice';
 import { selectTeacherAssignments } from '@/lib/redux/features/teacherAssignmentsSlice';
-import type { SchoolData, WizardData, Classroom, Subject, TeacherWithDetails, ClassWithGrade, LessonRequirement, TeacherConstraint, SubjectRequirement, TeacherAssignment } from '@/types';
+import { selectSchoolConfig } from '@/lib/redux/features/schoolConfigSlice';
+import type { WizardData } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 // Dynamic imports for wizard steps
 const SchoolConfigForm = dynamic(() => import('./SchoolConfigForm'), { loading: () => <p>Chargement...</p> });
@@ -45,6 +47,7 @@ export default function ShuddlePageClient() {
     const [mode, setMode] = useState<'wizard' | 'edit'>('wizard');
     const [currentStep, setCurrentStep] = useState(0);
     const [initialModeSet, setInitialModeSet] = useState(false);
+    const { toast } = useToast();
 
     const classes = useAppSelector(selectAllClasses);
     const subjects = useAppSelector(selectAllMatieres);
@@ -57,20 +60,12 @@ export default function ShuddlePageClient() {
     const teacherConstraints = useAppSelector(selectTeacherConstraints);
     const subjectRequirements = useAppSelector(selectSubjectRequirements);
     const teacherAssignments = useAppSelector(selectTeacherAssignments);
+    const schoolConfig = useAppSelector(selectSchoolConfig);
     
-    const [schoolConfig, setSchoolConfig] = useState<SchoolData>({
-      name: 'Collège Jean Moulin',
-      startTime: '08:00',
-      endTime: '17:00',
-      schoolDays: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
-      sessionDuration: 60
-    });
-
     useEffect(() => {
-      // Only set the mode once after the initial data load
       if (scheduleStatus === 'succeeded' && !initialModeSet) {
         setMode(schedule.length > 0 ? 'edit' : 'wizard');
-        setInitialModeSet(true); // Prevent this from running again
+        setInitialModeSet(true);
       }
     }, [schedule, scheduleStatus, initialModeSet]);
   
@@ -80,11 +75,12 @@ export default function ShuddlePageClient() {
       subjects: subjects,
       teachers: teachers,
       rooms: rooms,
+      grades: grades,
       lessonRequirements: lessonRequirements,
       teacherConstraints: teacherConstraints,
       subjectRequirements: subjectRequirements,
       teacherAssignments: teacherAssignments,
-    }), [schoolConfig, classes, subjects, teachers, rooms, lessonRequirements, teacherConstraints, subjectRequirements, teacherAssignments]);
+    }), [schoolConfig, classes, subjects, teachers, rooms, grades, lessonRequirements, teacherConstraints, subjectRequirements, teacherAssignments]);
   
     const handleNext = () => {
       if (currentStep < steps.length - 1) {
@@ -102,6 +98,13 @@ export default function ShuddlePageClient() {
       setCurrentStep(stepIndex);
     };
 
+    const handleSaveProgress = () => {
+        toast({
+            title: "Progression sauvegardée",
+            description: "Votre configuration a été enregistrée dans votre navigateur.",
+        });
+    };
+
     const handleGenerationSuccess = () => {
         setMode('edit');
     };
@@ -109,7 +112,7 @@ export default function ShuddlePageClient() {
     const renderStepContent = () => {
         switch (steps[currentStep].id) {
           case 'school':
-            return <SchoolConfigForm data={schoolConfig} onUpdate={setSchoolConfig} />;
+            return <SchoolConfigForm />;
           case 'classes':
             return <ClassesForm data={classes} grades={grades} />;
           case 'subjects':
@@ -211,7 +214,7 @@ export default function ShuddlePageClient() {
                     {renderStepContent()}
                     </div>
     
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center">
                     <Button
                         variant="outline"
                         onClick={handlePrevious}
@@ -221,7 +224,10 @@ export default function ShuddlePageClient() {
                         <ChevronLeft size={16} />
                         <span>Précédent</span>
                     </Button>
-    
+                    <Button onClick={handleSaveProgress} variant="secondary">
+                        <Save className="mr-2 h-4 w-4" />
+                        Sauvegarder la Progression
+                    </Button>
                     <Button
                         onClick={handleNext}
                         disabled={currentStep === steps.length - 1}

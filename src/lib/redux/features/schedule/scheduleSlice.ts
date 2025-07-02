@@ -45,13 +45,12 @@ export const scheduleSlice = createSlice({
   initialState,
   reducers: {
     setInitialSchedule(state, action: PayloadAction<SchedulableLesson[]>) {
-      // Assign temporary unique IDs to each generated lesson for client-side manipulation
       state.items = action.payload.map((lesson, index) => ({
         ...lesson,
-        id: -(Date.now() + index), // Ensure uniqueness
+        id: -(Date.now() + index),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      })) as Lesson[]; // The result is a valid Lesson array
+      })) as Lesson[];
       state.status = 'succeeded';
     },
     updateLessonSlot(state, action: PayloadAction<{ lessonId: number; newDay: Day; newTime: string }>) {
