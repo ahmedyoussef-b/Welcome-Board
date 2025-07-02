@@ -1,8 +1,7 @@
-
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { GripVertical, BookOpen, Trash2, UserPlus } from 'lucide-react';
 import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
+import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
@@ -70,26 +69,26 @@ function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails,
 
 // --- Main Form Component ---
 
-interface TeachersFormProps {
-  data: TeacherWithDetails[];
-}
-
-const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers }) => {
+// No props are needed as data is sourced from Redux store.
+const TeachersForm: React.FC = () => {
   const dispatch = useAppDispatch();
-  const allClasses = useAppSelector(selectAllClasses);
-  const allSubjects = useAppSelector(selectAllMatieres);
   const { toast } = useToast();
 
-  const subjectsWithTeachers = useMemo(() => {
-    const map = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
-    allSubjects.forEach(subject => {
-        const teachersForSubject = teachers.filter(teacher => teacher.subjects.some(s => s.id === subject.id));
-        if (teachersForSubject.length > 0) {
-            map.set(subject.id, { subject, teachers: teachersForSubject });
-        }
-    });
-    return Array.from(map.values());
-  }, [teachers, allSubjects]);
+  // Get live data directly from the Redux store
+  const teachers = useAppSelector(selectAllProfesseurs);
+  const allClasses = useAppSelector(selectAllClasses);
+  const allSubjects = useAppSelector(selectAllMatieres);
+  
+  // Calculate this on every render to avoid stale data from useMemo
+  const subjectsWithTeachersMap = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
+  allSubjects.forEach(subject => {
+      const teachersForSubject = teachers.filter(teacher => teacher.subjects.some(s => s.id === subject.id));
+      if (teachersForSubject.length > 0) {
+          subjectsWithTeachersMap.set(subject.id, { subject, teachers: teachersForSubject });
+      }
+  });
+  const subjectsWithTeachers = Array.from(subjectsWithTeachersMap.values());
+
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

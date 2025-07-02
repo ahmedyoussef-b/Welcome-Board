@@ -110,7 +110,7 @@ export default function ShuddlePageClient() {
           case 'subjects':
             return <SubjectsForm data={subjects} classes={classes} />;
           case 'teachers':
-            return <TeachersForm data={teachers} allSubjects={subjects} allClasses={classes} />;
+            return <TeachersForm />;
           case 'rooms':
             return <ClassroomsForm data={rooms} />;
           case 'constraints':
