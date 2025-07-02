@@ -1,8 +1,10 @@
 // src/lib/schedule-utils.ts
-import type { WizardData, Day, TeacherConstraint } from '@/types';
+import type { WizardData, Day, TeacherConstraint, Subject, Lesson } from '@/types';
 import { type Lesson as PrismaLesson } from '@prisma/client';
 
 type SchedulableLesson = Omit<PrismaLesson, 'id' | 'createdAt' | 'updatedAt'>;
+
+const formatTimeSimple = (date: string | Date): string => `${new Date(date).getUTCHours().toString().padStart(2, '0')}:00`;
 
 export const findConflictingConstraint = (
     teacherId: string,
@@ -26,6 +28,81 @@ export const findConflictingConstraint = (
         }
     }
     return null; // No conflicting constraints found
+};
+
+
+export const calculateAvailableSlots = (
+    selectedSubject: Subject | null,
+    selectedClassId: string,
+    schedule: Lesson[],
+    wizardData: WizardData,
+    viewMode: 'class' | 'teacher'
+): Set<string> => {
+    const slots = new Set<string>();
+
+    // --- Guards ---
+    if (!selectedSubject || viewMode !== 'class' || !selectedClassId || !wizardData.school || !Array.isArray(wizardData.teachers)) {
+        return slots;
+    }
+
+    const { school, teachers, teacherConstraints = [] } = wizardData;
+
+    // --- Logic ---
+    const schoolDays = school.schoolDays.map(d => d.toUpperCase() as Day);
+    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+
+    const potentialTeachers = teachers.filter(t => 
+        Array.isArray(t.subjects) && t.subjects.some(s => s.id === selectedSubject.id)
+    );
+
+    if (potentialTeachers.length === 0) {
+        return slots;
+    }
+  
+    schoolDays.forEach(day => {
+        timeSlots.forEach(time => {
+            const classIdNum = parseInt(selectedClassId, 10);
+            if (isNaN(classIdNum)) return;
+
+            const isSlotOccupiedForClass = schedule.some(l => 
+                l.classId === classIdNum && 
+                l.day === day && 
+                formatTimeSimple(l.startTime) === time
+            );
+            
+            if (isSlotOccupiedForClass) return;
+
+            const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
+                const isTeacherBusy = schedule.some(l => 
+                    l.teacherId === teacher.id && 
+                    l.day === day && 
+                    formatTimeSimple(l.startTime) === time
+                );
+
+                if (isTeacherBusy) return false;
+
+                const [hour, minute] = time.split(':').map(Number);
+                const lessonEndTime = new Date(0, 0, 0, hour, minute + school.sessionDuration);
+                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+                
+                const constraint = findConflictingConstraint(
+                    teacher.id, 
+                    day, 
+                    time, 
+                    lessonEndTimeStr, 
+                    teacherConstraints
+                );
+
+                return !constraint;
+            });
+
+            if (isAnyTeacherAvailable) {
+                slots.add(`${day}-${time}`);
+            }
+        });
+    });
+
+    return slots;
 };
 
 
