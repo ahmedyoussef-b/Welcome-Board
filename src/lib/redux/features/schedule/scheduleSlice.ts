@@ -95,10 +95,9 @@ export const scheduleSlice = createSlice({
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
-      const index = state.items.findIndex(lesson => lesson.id === action.payload);
-      if (index !== -1) {
-        state.items.splice(index, 1);
-      }
+      // Replaced splice with filter for a more robust, immutable update.
+      // This ensures React and Redux always detect the state change.
+      state.items = state.items.filter(lesson => lesson.id !== action.payload);
     },
     extendLesson(state, action: PayloadAction<{ lessonId: number }>) {
       const lesson = state.items.find(l => l.id === action.payload.lessonId);
