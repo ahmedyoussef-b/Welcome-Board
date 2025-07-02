@@ -200,7 +200,10 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
         return teacher ? `${teacher.name.charAt(0)}. ${teacher.surname}` : 'N/A';
     };
     const getClassName = (id: number) => wizardData.classes.find(c => c.id === id)?.name || 'N/A';
-    const getRoomName = (id: number | null) => wizardData.rooms.find(r => r.id === id)?.abbreviation || wizardData.rooms.find(r => r.id === id)?.name || 'N/A';
+    const getRoomName = (id: number | null) => {
+      if (!wizardData.rooms || !Array.isArray(wizardData.rooms)) return 'N/A';
+      return wizardData.rooms.find(r => r.id === id)?.abbreviation || wizardData.rooms.find(r => r.id === id)?.name || 'N/A';
+    }
 
     const subjectColors = ['bg-primary/10 border-primary/20', 'bg-secondary/10 border-secondary/20', 'bg-accent/10 border-accent/20', 'bg-chart-1/20 border-chart-1/30', 'bg-chart-2/20 border-chart-2/30', 'bg-chart-3/20 border-chart-3/30', 'bg-chart-4/20 border-chart-4/30', 'bg-chart-5/20 border-chart-5/30'];
     const getSubjectColor = (subjectId: number) => {
@@ -363,7 +366,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                           </TableCell>
                         );
                     } else {
-                        const isHighlighted = availableSlots.has(cellId);
+                        const isHighlighted = availableSlots ? availableSlots.has(cellId) : false;
                         const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
 
                         return (
