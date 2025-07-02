@@ -32,7 +32,7 @@ const schoolConfigSlice = createSlice({
     },
   },
   selectors: {
-    selectSchoolConfig: (state: { schoolConfig: SchoolData }) => state.schoolConfig,
+    selectSchoolConfig: (state: SchoolData) => state,
   }
 });
 

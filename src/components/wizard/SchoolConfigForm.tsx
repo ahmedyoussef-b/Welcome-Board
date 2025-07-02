@@ -28,7 +28,6 @@ const SchoolConfigForm: React.FC = () => {
   };
 
   const handleDayToggle = (dayId: string, checked: boolean) => {
-    if (!data) return;
     const newDays = checked 
       ? [...data.schoolDays, dayId]
       : data.schoolDays.filter(day => day !== dayId);
@@ -160,5 +159,3 @@ const SchoolConfigForm: React.FC = () => {
     </div>
   );
 };
-
-export default SchoolConfigForm;
