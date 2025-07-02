@@ -5,7 +5,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { BookOpen, User, RotateCcw } from 'lucide-react';
+import { BookOpen, User, RotateCcw, Save } from 'lucide-react';
 import type { TeacherWithDetails, ClassWithGrade, Subject } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
@@ -44,7 +44,16 @@ const TeachersForm: React.FC = () => {
   
   const handleReset = () => {
       dispatch(clearAllAssignments());
-      toast({ title: 'Assignations réinitialisées' });
+      toast({ title: 'Assignations réinitialisées', description: "Toutes les assignations ont été effacées du brouillon." });
+  };
+
+  const handleSave = () => {
+    // The state is already saved automatically by redux-persist.
+    // This button provides explicit user feedback that the action is complete.
+    toast({
+      title: 'Progression sauvegardée',
+      description: 'Vos assignations actuelles ont été enregistrées dans votre navigateur.',
+    });
   };
 
   return (
@@ -62,6 +71,10 @@ const TeachersForm: React.FC = () => {
             <Button onClick={handleReset} variant="outline">
               <RotateCcw className="mr-2 h-4 w-4" />
               Réinitialiser
+            </Button>
+            <Button onClick={handleSave}>
+              <Save className="mr-2 h-4 w-4" />
+              Sauvegarder les assignations
             </Button>
           </div>
         </div>
