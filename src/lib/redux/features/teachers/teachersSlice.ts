@@ -88,33 +88,27 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
-        const teacherIndex = state.items.findIndex(t => t.id === teacherId);
-
-        if (teacherIndex !== -1) {
-            const updatedTeacher = {
-                ...state.items[teacherIndex],
-                classes: [...state.items[teacherIndex].classes, classData].sort((a,b) => a.name.localeCompare(b.name)),
-            };
-            
-            const newItems = [...state.items];
-            newItems[teacherIndex] = updatedTeacher;
-            state.items = newItems;
-        }
+        state.items = state.items.map(teacher => {
+            if (teacher.id === teacherId) {
+                // Avoid adding duplicates
+                if (teacher.classes.some(c => c.id === classData.id)) {
+                    return teacher;
+                }
+                const updatedClasses = [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name));
+                return { ...teacher, classes: updatedClasses };
+            }
+            return teacher;
+        });
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
-        const teacherIndex = state.items.findIndex(t => t.id === teacherId);
-
-        if (teacherIndex !== -1) {
-            const updatedTeacher = {
-                ...state.items[teacherIndex],
-                classes: state.items[teacherIndex].classes.filter(c => c.id !== classId),
-            };
-
-            const newItems = [...state.items];
-            newItems[teacherIndex] = updatedTeacher;
-            state.items = newItems;
-        }
+        state.items = state.items.map(teacher => {
+            if (teacher.id === teacherId) {
+                const updatedClasses = teacher.classes.filter(c => c.id !== classId);
+                return { ...teacher, classes: updatedClasses };
+            }
+            return teacher;
+        });
     },
   },
   extraReducers: (builder) => {

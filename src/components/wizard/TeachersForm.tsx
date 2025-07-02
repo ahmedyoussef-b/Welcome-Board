@@ -42,7 +42,7 @@ function DraggableClass({ classData }: { classData: ClassWithGrade }) {
   );
 }
 
-function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails, onUnassign: (classId: number) => void }) {
+function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails, onUnassign: (teacherId: string, classId: number) => void }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `teacher-${teacher.id}`,
     data: { teacherId: teacher.id },
@@ -55,7 +55,7 @@ function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails,
         {teacher.classes.map(cls => (
           <Badge key={cls.id} variant="secondary" className="flex items-center gap-1">
             {cls.name}
-            <button onClick={() => onUnassign(cls.id)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5">
+            <button onClick={() => onUnassign(teacher.id, cls.id)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5">
               <Trash2 className="h-3 w-3 text-destructive" />
             </button>
           </Badge>
@@ -153,7 +153,7 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects
                 <div className="md:col-span-2 space-y-4">
                     <h4 className="font-medium mb-2">Professeurs de {subject.name}</h4>
                     {subjectTeachers.map(teacher => (
-                      <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={(classId) => handleUnassign(teacher.id, classId)}/>
+                      <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={handleUnassign}/>
                     ))}
                 </div>
               </div>
