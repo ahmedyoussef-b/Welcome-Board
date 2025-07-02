@@ -1,4 +1,4 @@
-
+// src/components/wizard/ClassroomsForm.tsx
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Plus, Trash2, Monitor, FlaskConical, Dumbbell, School, Loader2 } from 'lucide-react';
 import { useAppDispatch } from '@/hooks/redux-hooks';
-import { addSalle, deleteSalle } from '@/lib/redux/features/classrooms/classroomsSlice';
+import { localAddClassroom, localDeleteClassroom } from '@/lib/redux/features/classrooms/classroomsSlice';
 import type { Classroom, CreateClassroomPayload } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -26,30 +26,27 @@ const ClassroomsForm: React.FC<ClassroomsFormProps> = ({ data }) => {
   });
   const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddRoom = async () => {
-    if (isAdding || !newRoom.name || !newRoom.capacity) return;
+  const handleAddRoom = () => {
+    if (!newRoom.name || !newRoom.capacity) return;
     
-    setIsAdding(true);
-    const result = await dispatch(addSalle(newRoom));
-    setIsAdding(false);
+    dispatch(localAddClassroom({
+      id: -Date.now(), // Temporary client-side ID
+      ...newRoom
+    }));
 
-    if (addSalle.fulfilled.match(result)) {
-      toast({
-        title: 'Salle ajoutée',
-        description: `La salle "${result.payload.name}" a été créée avec succès.`,
-      });
-      setNewRoom({ name: '', abbreviation: '', capacity: 30, building: 'A' });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: "Erreur d'ajout",
-        description: (result.payload as string) || 'Une erreur est survenue.',
-      });
-    }
+    toast({
+      title: 'Salle ajoutée (Brouillon)',
+      description: `La salle "${newRoom.name}" a été ajoutée à votre configuration.`,
+    });
+    setNewRoom({ name: '', abbreviation: '', capacity: 30, building: 'A' });
   };
 
   const handleDeleteRoom = (id: number) => {
-    dispatch(deleteSalle(id));
+    dispatch(localDeleteClassroom(id));
+     toast({
+      title: 'Salle supprimée (Brouillon)',
+      description: `La salle a été supprimée de votre configuration.`,
+    });
   };
 
   return (

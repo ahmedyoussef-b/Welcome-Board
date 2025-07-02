@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, Plus, Trash2, Edit, Loader2 } from 'lucide-react';
 import type { ClassWithGrade, CreateClassPayload, Grade } from '@/types';
 import { useAppDispatch } from '@/hooks/redux-hooks';
-import { addClasse, deleteClasse } from '@/lib/redux/features/classes/classesSlice';
+import { localAddClass, localDeleteClass } from '@/lib/redux/features/classes/classesSlice';
 import { useToast } from '@/hooks/use-toast';
 
 interface ClassesFormProps {
@@ -29,8 +29,8 @@ const ClassesForm: React.FC<ClassesFormProps> = ({ data, grades }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
 
-  const handleAddClass = async () => {
-    if (isAdding || !newClass.gradeLevel || !newClass.section || !newClass.capacity) return;
+  const handleAddClass = () => {
+    if (!newClass.gradeLevel || !newClass.section || !newClass.capacity) return;
 
     const selectedGrade = grades.find(g => g.level === newClass.gradeLevel);
     if (!selectedGrade) {
@@ -53,35 +53,32 @@ const ClassesForm: React.FC<ClassesFormProps> = ({ data, grades }) => {
         });
         return;
     }
-
-    const classToAdd: CreateClassPayload = {
-      name: newClassName,
-      abbreviation: `${selectedGrade.level}${newClass.section}`,
-      capacity: newClass.capacity,
-      gradeLevel: newClass.gradeLevel,
-    };
     
-    setIsAdding(true);
-    const result = await dispatch(addClasse(classToAdd));
-    setIsAdding(false);
-
-    if (addClasse.fulfilled.match(result)) {
-      toast({
-        title: 'Classe ajoutée',
-        description: `La classe "${result.payload.name}" a été créée avec succès.`,
-      });
-      setNewClass({ gradeLevel: 0, section: '', capacity: 25 });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: "Erreur d'ajout",
-        description: (result.payload as any)?.message || 'Une erreur est survenue.',
-      });
-    }
+    // Dispatch local action instead of API call
+    dispatch(localAddClass({
+        id: -Date.now(), // Temporary negative ID for client-side
+        name: newClassName,
+        abbreviation: `${selectedGrade.level}${newClass.section}`,
+        capacity: newClass.capacity,
+        gradeId: selectedGrade.id,
+        supervisorId: null,
+        grade: selectedGrade,
+        _count: { students: 0, lessons: 0 }
+    }));
+    
+    toast({
+      title: 'Classe ajoutée (Brouillon)',
+      description: `La classe "${newClassName}" a été ajoutée à votre configuration.`,
+    });
+    setNewClass({ gradeLevel: 0, section: '', capacity: 25 });
   };
 
   const handleDeleteClass = (id: number) => {
-    dispatch(deleteClasse(id));
+    dispatch(localDeleteClass(id));
+     toast({
+        title: 'Classe supprimée (Brouillon)',
+        description: `La classe a été supprimée de votre configuration.`,
+      });
   };
 
   const handleEditClass = (id: number) => {

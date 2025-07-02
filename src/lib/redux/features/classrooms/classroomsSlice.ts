@@ -1,4 +1,3 @@
-
 // src/lib/redux/features/classrooms/classroomsSlice.ts
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import type { Classroom, CreateClassroomPayload } from '@/types';
@@ -88,6 +87,13 @@ export const classroomsSlice = createSlice({
       state.items = action.payload;
       state.status = 'succeeded';
     },
+    localAddClassroom(state, action: PayloadAction<Classroom>) {
+      state.items.push(action.payload);
+      state.items.sort((a,b) => a.name.localeCompare(b.name));
+    },
+    localDeleteClassroom(state, action: PayloadAction<number>) {
+      state.items = state.items.filter(c => c.id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -100,7 +106,12 @@ export const classroomsSlice = createSlice({
         state.items = action.payload;
       })
       .addCase(addSalle.fulfilled, (state, action: PayloadAction<Classroom>) => {
-        state.items.push(action.payload);
+        const index = state.items.findIndex(item => item.id < 0);
+        if (index !== -1) {
+            state.items[index] = action.payload;
+        } else {
+            state.items.push(action.payload);
+        }
         state.items.sort((a, b) => a.name.localeCompare(b.name));
       })
       .addCase(deleteSalle.fulfilled, (state, action: PayloadAction<number>) => {
@@ -121,6 +132,6 @@ export const classroomsSlice = createSlice({
   }
 });
 
-export const { setAllClassrooms } = classroomsSlice.actions;
+export const { setAllClassrooms, localAddClassroom, localDeleteClassroom } = classroomsSlice.actions;
 export const { selectAllSalles, getSallesStatus, getSallesError } = classroomsSlice.selectors;
 export default classroomsSlice.reducer;

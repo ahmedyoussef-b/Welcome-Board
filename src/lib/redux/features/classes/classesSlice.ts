@@ -1,4 +1,3 @@
-
 // src/lib/redux/features/classes/classesSlice.ts
 import { createSlice, createAsyncThunk, type PayloadAction } from '@reduxjs/toolkit';
 import type { ClassWithGrade, CreateClassPayload } from '@/types';
@@ -15,6 +14,7 @@ const initialState: ClassesState = {
   error: null,
 };
 
+// --- Async Thunks for API interaction ---
 export const fetchClasses = createAsyncThunk<Array<ClassWithGrade>, void, { rejectValue: string }>(
   'classes/fetchClasses',
   async (_, { rejectWithValue }) => {
@@ -83,9 +83,17 @@ export const classesSlice = createSlice({
   name: 'classes',
   initialState,
   reducers: {
+    // --- Local Reducers for Draft Mode ---
     setAllClasses(state, action: PayloadAction<ClassWithGrade[]>) {
       state.items = action.payload;
       state.status = 'succeeded';
+    },
+    localAddClass(state, action: PayloadAction<ClassWithGrade>) {
+        state.items.push(action.payload);
+        state.items.sort((a,b) => a.name.localeCompare(b.name));
+    },
+    localDeleteClass(state, action: PayloadAction<number>) {
+        state.items = state.items.filter(c => c.id !== action.payload);
     },
   },
   extraReducers: (builder) => {
@@ -99,7 +107,14 @@ export const classesSlice = createSlice({
         state.items = action.payload;
       })
       .addCase(addClasse.fulfilled, (state, action: PayloadAction<ClassWithGrade>) => {
-        state.items.push(action.payload);
+        // This is now used for syncing after a final save, not during drafting.
+        const index = state.items.findIndex(item => item.id < 0); // Find temporary item if it exists
+        if (index !== -1) {
+            state.items[index] = action.payload;
+        } else {
+            state.items.push(action.payload);
+        }
+        state.items.sort((a,b) => a.name.localeCompare(b.name));
       })
       .addCase(deleteClasse.fulfilled, (state, action: PayloadAction<number>) => {
         state.items = state.items.filter(c => c.id !== action.payload);
@@ -119,6 +134,6 @@ export const classesSlice = createSlice({
   }
 });
 
-export const { setAllClasses } = classesSlice.actions;
+export const { setAllClasses, localAddClass, localDeleteClass } = classesSlice.actions;
 export const { selectAllClasses, getClassesStatus, getClassesError } = classesSlice.selectors;
 export default classesSlice.reducer;

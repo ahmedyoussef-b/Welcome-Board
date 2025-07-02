@@ -13,8 +13,8 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import type { Subject, Class, CreateSubjectPayload } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { addMatiere, deleteMatiere } from '@/lib/redux/features/subjects/subjectsSlice';
-import { setRequirement, saveLessonRequirements, selectLessonRequirements, getRequirementsStatus } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
+import { localAddSubject, localDeleteSubject } from '@/lib/redux/features/subjects/subjectsSlice';
+import { setRequirement, selectLessonRequirements } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,6 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
   const dispatch = useAppDispatch();
   const { toast } = useToast();
   const lessonRequirements = useAppSelector(selectLessonRequirements);
-  const requirementsStatus = useAppSelector(getRequirementsStatus);
   const firstClassId = classes[0]?.id;
 
   const [newSubject, setNewSubject] = useState<Omit<CreateSubjectPayload, 'id'>>({
@@ -38,8 +37,8 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
   const [isAdding, setIsAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const handleAddSubject = async () => {
-    if (isAdding || !newSubject.name || !newSubject.weeklyHours || !newSubject.coefficient) return;
+  const handleAddSubject = () => {
+    if (!newSubject.name || !newSubject.weeklyHours || !newSubject.coefficient) return;
 
     const subjectExists = subjects.some(s => s.name.trim().toLowerCase() === newSubject.name.trim().toLowerCase());
     if (subjectExists) {
@@ -51,23 +50,16 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
         return;
     }
 
-    setIsAdding(true);
-    const result = await dispatch(addMatiere(newSubject));
-    setIsAdding(false);
+    dispatch(localAddSubject({
+      id: -Date.now(), // Temporary ID
+      ...newSubject
+    }));
 
-    if (addMatiere.fulfilled.match(result)) {
-      toast({
-        title: 'Matière ajoutée',
-        description: `La matière "${result.payload.name}" a été créée avec succès.`,
-      });
-      setNewSubject({ name: '', weeklyHours: 2, coefficient: 1 });
-    } else {
-      toast({
-        variant: 'destructive',
-        title: "Erreur d'ajout",
-        description: (result.payload as string) || 'Une erreur est survenue.',
-      });
-    }
+    toast({
+      title: 'Matière ajoutée (Brouillon)',
+      description: `La matière "${newSubject.name}" a été ajoutée.`,
+    });
+    setNewSubject({ name: '', weeklyHours: 2, coefficient: 1 });
   };
 
   const handleHoursChange = (classId: number, subjectId: number, hours: number) => {
@@ -96,35 +88,13 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
       return specificReq === undefined;
   };
 
-  const handleDeleteSubject = async (id: number) => {
-    setDeletingId(id);
-    const result = await dispatch(deleteMatiere(id));
-    setDeletingId(null);
-    if (deleteMatiere.fulfilled.match(result)) {
-      toast({
-        title: "Matière supprimée",
-        description: "La matière a été retirée du catalogue avec succès.",
-      });
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Erreur de suppression",
-        description: (result.payload as string) || "Une erreur est survenue.",
-      });
-    }
+  const handleDeleteSubject = (id: number) => {
+    dispatch(localDeleteSubject(id));
+    toast({
+      title: "Matière supprimée (Brouillon)",
+      description: "La matière a été retirée de votre configuration.",
+    });
   };
-
-  const handleSaveChanges = () => {
-    dispatch(saveLessonRequirements(lessonRequirements));
-  };
-
-  useEffect(() => {
-    if (requirementsStatus === 'succeeded') {
-      toast({ title: 'Succès', description: 'Horaires sauvegardés avec succès.' });
-    } else if (requirementsStatus === 'failed') {
-      toast({ variant: 'destructive', title: 'Erreur', description: 'La sauvegarde des horaires a échoué.' });
-    }
-  }, [requirementsStatus, toast]);
 
   return (
     <div className="space-y-6">
@@ -167,10 +137,6 @@ const SubjectsForm: React.FC<SubjectsFormProps> = ({ data: subjects, classes }) 
             <Hourglass className="text-primary" size={20} />
             <h3 className="text-lg font-semibold">Configuration des horaires par classe</h3>
           </div>
-          <Button onClick={handleSaveChanges} disabled={requirementsStatus === 'loading'}>
-            {requirementsStatus === 'loading' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            Sauvegarder les horaires
-          </Button>
         </div>
         
         {classes.length === 0 || subjects.length === 0 ? (

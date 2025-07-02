@@ -1,4 +1,3 @@
-
 // src/lib/redux/features/subjects/subjectsSlice.ts
 import { createSlice, type PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Subject, CreateSubjectPayload } from '@/types';
@@ -86,6 +85,13 @@ export const subjectsSlice = createSlice({
       state.items = action.payload;
       state.status = 'succeeded';
     },
+    localAddSubject(state, action: PayloadAction<Subject>) {
+        state.items.push(action.payload);
+        state.items.sort((a,b) => a.name.localeCompare(b.name));
+    },
+    localDeleteSubject(state, action: PayloadAction<number>) {
+        state.items = state.items.filter(s => s.id !== action.payload);
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -98,7 +104,13 @@ export const subjectsSlice = createSlice({
         state.items = action.payload;
       })
       .addCase(addMatiere.fulfilled, (state, action: PayloadAction<Subject>) => {
-        state.items.push(action.payload);
+        const index = state.items.findIndex(item => item.id < 0);
+        if (index !== -1) {
+            state.items[index] = action.payload;
+        } else {
+            state.items.push(action.payload);
+        }
+        state.items.sort((a,b) => a.name.localeCompare(b.name));
       })
       .addCase(deleteMatiere.fulfilled, (state, action: PayloadAction<number>) => {
         state.items = state.items.filter(s => s.id !== action.payload);
@@ -118,6 +130,6 @@ export const subjectsSlice = createSlice({
   }
 });
 
-export const { setAllSubjects } = subjectsSlice.actions;
+export const { setAllSubjects, localAddSubject, localDeleteSubject } = subjectsSlice.actions;
 export const { selectAllMatieres, getMatieresStatus, getMatieresError } = subjectsSlice.selectors;
 export default subjectsSlice.reducer;
