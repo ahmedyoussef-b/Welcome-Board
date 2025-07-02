@@ -113,34 +113,36 @@ export const teachersSlice = createSlice({
       state.items = action.payload;
       state.status = 'succeeded';
     },
-    assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
-        const { teacherId, classData } = action.payload;
-        // Step 1: Remove the class from any teacher who currently supervises it.
-        // This ensures a class can only be supervised by one teacher at a time in the Redux state.
-        state.items.forEach(teacher => {
-            const classIndex = teacher.classes.findIndex(c => c.id === classData.id);
-            if (classIndex > -1) {
-                teacher.classes.splice(classIndex, 1);
-            }
-        });
+    setSupervisorForClass(state, action: PayloadAction<{ classId: number; teacherId: string | null }>) {
+      const { classId, teacherId } = action.payload;
+      
+      let classData: ClassWithGrade | undefined;
 
-        // Step 2: Find the new teacher and assign the class to them.
-        const targetTeacher = state.items.find(teacher => teacher.id === teacherId);
-        if (targetTeacher) {
-            targetTeacher.classes.push(classData);
-            targetTeacher.classes.sort((a, b) => a.name.localeCompare(b.name));
-        }
-    },
-    unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
-        const { teacherId, classId } = action.payload;
-        state.items = state.items.map(teacher => 
-            teacher.id !== teacherId
-            ? teacher
-            : {
-                ...teacher,
-                classes: teacher.classes.filter(c => c.id !== classId),
+      // Find the class data and remove it from its old supervisor
+      state.items.forEach(teacher => {
+          const classIndex = teacher.classes.findIndex(c => c.id === classId);
+          if (classIndex > -1) {
+              // Found the class, store its data before removing.
+              // This is a shallow copy which is fine inside Immer.
+              if (!classData) {
+                  classData = teacher.classes[classIndex];
               }
-        );
+              teacher.classes.splice(classIndex, 1);
+          }
+      });
+
+      // Assign the class to the new supervisor (if any)
+      if (teacherId && classData) {
+          const newSupervisor = state.items.find(t => t.id === teacherId);
+          if (newSupervisor) {
+              // Ensure no duplicates, though the logic above should prevent it
+              if (!newSupervisor.classes.some(c => c.id === classId)) {
+                  newSupervisor.classes.push(classData);
+                  // Keep the list sorted for consistent display
+                  newSupervisor.classes.sort((a,b) => a.name.localeCompare(b.name));
+              }
+          }
+      }
     },
     unassignAllClasses: (state) => {
         state.items.forEach(teacher => {
@@ -190,6 +192,6 @@ export const teachersSlice = createSlice({
   }
 });
 
-export const { setAllTeachers, assignClassToTeacher, unassignClassFromTeacher, unassignAllClasses } = teachersSlice.actions;
+export const { setAllTeachers, setSupervisorForClass, unassignAllClasses } = teachersSlice.actions;
 export const { selectAllProfesseurs, getProfesseursStatus, getProfesseursError } = teachersSlice.selectors;
 export default teachersSlice.reducer;
