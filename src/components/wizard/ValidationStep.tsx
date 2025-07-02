@@ -72,7 +72,7 @@ const ValidationStep: React.FC<{ wizardData: WizardData, onGenerationSuccess: ()
       setGenerationProgress(((i + 1) / steps.length) * 100);
     }
     const finalSchedule = generateSchedule(wizardData);
-    dispatch(setInitialSchedule(finalSchedule as Lesson[]));
+    dispatch(setInitialSchedule(finalSchedule));
     setIsGenerating(false);
     setIsGenerated(true);
     setIsSaved(false);

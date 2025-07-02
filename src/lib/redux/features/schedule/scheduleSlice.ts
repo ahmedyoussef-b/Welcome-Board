@@ -44,8 +44,14 @@ export const scheduleSlice = createSlice({
   name: 'schedule',
   initialState,
   reducers: {
-    setInitialSchedule(state, action: PayloadAction<Lesson[]>) {
-      state.items = action.payload;
+    setInitialSchedule(state, action: PayloadAction<SchedulableLesson[]>) {
+      // Assign temporary unique IDs to each generated lesson for client-side manipulation
+      state.items = action.payload.map((lesson, index) => ({
+        ...lesson,
+        id: -(Date.now() + index), // Ensure uniqueness
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      })) as Lesson[]; // The result is a valid Lesson array
       state.status = 'succeeded';
     },
     updateLessonSlot(state, action: PayloadAction<{ lessonId: number; newDay: Day; newTime: string }>) {
@@ -95,8 +101,6 @@ export const scheduleSlice = createSlice({
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
-      // Replaced splice with filter for a more robust, immutable update.
-      // This ensures React and Redux always detect the state change.
       state.items = state.items.filter(lesson => lesson.id !== action.payload);
     },
     extendLesson(state, action: PayloadAction<{ lessonId: number }>) {
