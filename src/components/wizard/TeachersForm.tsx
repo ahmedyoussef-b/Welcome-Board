@@ -1,71 +1,63 @@
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React from 'react';
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
+import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GripVertical, BookOpen, Trash2, UserPlus } from 'lucide-react';
+import { BookOpen, Trash2, UserPlus, Copy } from 'lucide-react';
 import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
-// --- Internal Components for Drag and Drop ---
+// --- Internal Components for the new double-click interaction ---
 
-function DraggableClass({ classData }: { classData: ClassWithGrade }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `class-${classData.id}`,
-    data: { classData },
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    zIndex: 10,
-    opacity: isDragging ? 0.5 : 1,
-  } : undefined;
-
+function SelectableClass({ classData, isSelected, onSelect }: { classData: ClassWithGrade; isSelected: boolean; onSelect: (classData: ClassWithGrade) => void; }) {
   return (
     <div
-      ref={setNodeRef}
-      style={style}
-      className="p-2 border rounded-md bg-background flex items-center gap-2 cursor-grab active:cursor-grabbing active:shadow-lg"
-      {...listeners}
-      {...attributes}
+      onDoubleClick={() => onSelect(classData)}
+      className={cn(
+        "p-2 border rounded-md bg-background flex items-center justify-center gap-2 cursor-pointer transition-all",
+        isSelected ? "ring-2 ring-primary bg-primary/10" : "hover:bg-muted"
+      )}
+      title={`Double-cliquez pour ${isSelected ? 'désélectionner' : 'sélectionner'} ${classData.name}`}
     >
-      <GripVertical className="h-4 w-4 text-muted-foreground" />
       <span className="text-sm font-medium">{classData.name}</span>
     </div>
   );
 }
 
-function TeacherDropzone({ teacher, onUnassign }: { teacher: TeacherWithDetails, onUnassign: (teacherId: string, classId: number) => void }) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `teacher-${teacher.id}`,
-    data: { teacherId: teacher.id },
-  });
-
+function TeacherCard({ teacher, onUnassign, onAssign }: { teacher: TeacherWithDetails; onUnassign: (teacherId: string, classId: number) => void; onAssign: (teacherId: string) => void; }) {
   return (
-    <div ref={setNodeRef} className={`p-4 rounded-lg border transition-colors ${isOver ? 'bg-primary/20 border-primary' : 'bg-muted/50'}`}>
+    <div
+      onDoubleClick={() => onAssign(teacher.id)}
+      className="p-4 rounded-lg border bg-muted/50 cursor-pointer hover:bg-primary/10 transition-colors"
+      title="Double-cliquez pour assigner la classe sélectionnée"
+    >
       <h4 className="font-semibold">{teacher.name} {teacher.surname}</h4>
       <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]">
         {teacher.classes.map(cls => (
           <Badge key={cls.id} variant="secondary" className="flex items-center gap-1">
             {cls.name}
-            <button onClick={() => onUnassign(teacher.id, cls.id)} className="ml-1 rounded-full hover:bg-destructive/20 p-0.5">
+            <button 
+              onClick={(e) => { 
+                e.stopPropagation(); // Prevent the double-click event on the parent div
+                onUnassign(teacher.id, cls.id); 
+              }} 
+              className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
+            >
               <Trash2 className="h-3 w-3 text-destructive" />
             </button>
           </Badge>
         ))}
-        {teacher.classes.length === 0 && <p className="text-xs text-muted-foreground">Déposer des classes ici</p>}
+        {teacher.classes.length === 0 && <p className="text-xs text-muted-foreground">Double-cliquez pour assigner une classe</p>}
       </div>
     </div>
   );
 }
-
 
 // --- Main Form Component ---
 
@@ -76,43 +68,65 @@ const TeachersForm: React.FC = () => {
   const teachers = useAppSelector(selectAllProfesseurs);
   const allClasses = useAppSelector(selectAllClasses);
   const allSubjects = useAppSelector(selectAllMatieres);
-  
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over) {
-      return;
-    }
 
-    const classData = active.data.current?.classData as ClassWithGrade | undefined;
-    const teacherId = over.data.current?.teacherId as string | undefined;
+  const [selectedClass, setSelectedClass] = useState<ClassWithGrade | null>(null);
 
-    if (classData && teacherId) {
-      const teacher = teachers.find(t => t.id === teacherId);
-      if (teacher && teacher.classes.some(c => c.id === classData.id)) {
-          toast({
-              variant: 'destructive',
-              title: 'Assignation impossible',
-              description: `La classe ${classData.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
-          });
-          return;
-      }
-      dispatch(assignClassToTeacher({ teacherId, classData }));
+  const handleSelectClass = (classData: ClassWithGrade) => {
+    if (selectedClass?.id === classData.id) {
+        setSelectedClass(null);
+        toast({ title: 'Classe désélectionnée' });
+    } else {
+        setSelectedClass(classData);
+        toast({ title: 'Classe sélectionnée', description: `"${classData.name}" est prête à être assignée.` });
     }
   };
-  
+
+  const handleAssignClass = (teacherId: string) => {
+    if (!selectedClass) {
+        toast({
+            variant: 'destructive',
+            title: 'Aucune classe sélectionnée',
+            description: 'Veuillez double-cliquer sur une classe pour la sélectionner avant de l\'assigner.',
+        });
+        return;
+    }
+
+    const teacher = teachers.find(t => t.id === teacherId);
+    if (teacher && teacher.classes.some(c => c.id === selectedClass.id)) {
+        toast({
+            variant: 'destructive',
+            title: 'Assignation impossible',
+            description: `La classe ${selectedClass.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
+        });
+        return;
+    }
+
+    dispatch(assignClassToTeacher({ teacherId, classData: selectedClass }));
+    toast({
+        title: 'Classe assignée !',
+        description: `"${selectedClass.name}" a été assignée à ${teacher?.name} ${teacher?.surname}.`,
+    });
+    setSelectedClass(null); // Clear selection after assignment
+  };
+
   const handleUnassign = (teacherId: string, classId: number) => {
       dispatch(unassignClassFromTeacher({ teacherId, classId }));
   };
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
       <div className="space-y-8">
         <Card className="p-6">
             <div className="flex items-center space-x-2 mb-4">
                 <UserPlus className="text-primary" size={20} />
                 <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Pour chaque matière, faites glisser les classes disponibles vers les professeurs qui les enseigneront.</p>
+            <p className="text-sm text-muted-foreground">Double-cliquez sur une classe pour la sélectionner, puis double-cliquez sur un professeur pour la lui assigner.</p>
+            {selectedClass && (
+                <div className="mt-4 p-3 bg-primary/10 rounded-lg flex items-center gap-2 text-primary border border-primary/20">
+                    <Copy size={16} />
+                    <p className="text-sm font-medium">Classe sélectionnée : <strong>{selectedClass.name}</strong></p>
+                </div>
+            )}
         </Card>
 
         {allSubjects.map((subject) => {
@@ -144,7 +158,14 @@ const TeachersForm: React.FC = () => {
                              <h4 className="font-semibold mb-2">Classes non assignées ({unassignedClassesForGroup.length})</h4>
                             <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[400px] overflow-y-auto grid grid-cols-1 gap-2">
                                 {unassignedClassesForGroup.length > 0 ? (
-                                    unassignedClassesForGroup.map(cls => <DraggableClass key={cls.id} classData={cls} />)
+                                    unassignedClassesForGroup.map(cls => (
+                                        <SelectableClass 
+                                            key={cls.id} 
+                                            classData={cls} 
+                                            isSelected={selectedClass?.id === cls.id}
+                                            onSelect={handleSelectClass}
+                                        />
+                                    ))
                                 ) : (
                                     <p className="text-sm text-muted-foreground text-center pt-8">
                                     Toutes les classes ont été assignées pour cette matière.
@@ -156,7 +177,12 @@ const TeachersForm: React.FC = () => {
                         <div className="space-y-4 md:col-span-2">
                             <h4 className="font-semibold mb-2">Professeurs de {subject.name}</h4>
                             {subjectTeachers.map(teacher => (
-                                <TeacherDropzone key={teacher.id} teacher={teacher} onUnassign={handleUnassign}/>
+                                <TeacherCard 
+                                    key={teacher.id} 
+                                    teacher={teacher} 
+                                    onUnassign={handleUnassign}
+                                    onAssign={handleAssignClass}
+                                />
                             ))}
                         </div>
                     </div>
@@ -164,7 +190,6 @@ const TeachersForm: React.FC = () => {
             )
         })}
       </div>
-    </DndContext>
   );
 };
 
