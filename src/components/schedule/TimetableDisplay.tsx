@@ -1,7 +1,7 @@
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,11 +9,12 @@ import { Download, Printer, Trash2, Building } from 'lucide-react';
 import type { WizardData, Lesson, Subject } from '@/types';
 import { Day } from '@prisma/client';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
-import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { selectSchedule, updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
+import { useAppDispatch } from '@/hooks/redux-hooks';
+import { updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { findConflictingConstraint } from '@/lib/schedule-utils';
 
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
@@ -75,7 +76,8 @@ const mergeConsecutiveLessons = (lessons: Lesson[], wizardData: WizardData): Les
 const formatUtcTime = (dateString: string | Date): string => {
     const date = new Date(dateString);
     const hours = String(date.getUTCHours()).padStart(2, '0');
-    return `${hours}:00`;
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
 };
 
 
@@ -91,11 +93,11 @@ const RoomSelectorPopover: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
 
     const occupiedRoomIds = useMemo(() => {
-        const checkTime = new Date(`1970-01-01T${timeSlot}:00Z`).getTime();
+        const [hour, minute] = timeSlot.split(':').map(Number);
+        const checkTime = new Date(Date.UTC(1970, 0, 1, hour, minute)).getTime();
         
         return fullSchedule
             .filter(l => {
-                // Ignore the current lesson when checking for conflicts
                 if (lesson && l.id === lesson.id) return false;
 
                 const lessonStart = new Date(l.startTime);
@@ -226,7 +228,9 @@ const DroppableEmptyCell = ({ day, timeSlot, onDoubleClick, isHighlighted, highl
             onDoubleClick={() => onDoubleClick?.(day, timeSlot)}
             className={cn(
                 'h-24 w-full rounded-md transition-colors relative group p-1',
-                isHighlighted ? `${highlightColor} border-2 border-dashed border-primary animate-subtle-pulse` : 'hover:bg-muted/50'
+                isHighlighted 
+                  ? `${highlightColor} border-2 border-dashed border-primary animate-subtle-pulse` 
+                  : 'hover:bg-muted/50'
             )}
         >
         </div>
@@ -238,15 +242,26 @@ const DroppableEmptyCell = ({ day, timeSlot, onDoubleClick, isHighlighted, highl
 interface TimetableDisplayProps {
   wizardData: WizardData;
   scheduleData: Lesson[];
+  fullSchedule: Lesson[];
   isEditable?: boolean;
   onDeleteLesson?: (lessonId: number) => void;
-  highlightedSlots?: string[];
-  highlightColor?: string | null;
   onEmptyCellDoubleClick?: (day: Day, timeSlot: string) => void;
+  selectedSubject: Subject | null;
+  viewMode: 'class' | 'teacher';
+  selectedClassId: string;
 }
 
-const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, scheduleData, isEditable = false, onDeleteLesson = () => {}, highlightedSlots = [], highlightColor = null, onEmptyCellDoubleClick }) => {
-  const fullSchedule = useAppSelector(selectSchedule);
+const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ 
+    wizardData, 
+    scheduleData, 
+    fullSchedule,
+    isEditable = false, 
+    onDeleteLesson = () => {}, 
+    onEmptyCellDoubleClick,
+    selectedSubject,
+    viewMode,
+    selectedClassId
+}) => {
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
@@ -282,6 +297,44 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
     });
     return { scheduleGrid: grid, spannedSlots: localSpannedSlots };
   }, [scheduleData, wizardData, timeSlots]);
+  
+  const isSlotAvailable = useCallback((day: Day, time: string): boolean => {
+    if (!selectedSubject || viewMode !== 'class' || !selectedClassId) {
+        return false;
+    }
+    
+    const potentialTeachers = wizardData.teachers.filter(t =>
+        t.subjects.some(s => s.id === selectedSubject.id)
+    );
+
+    if (potentialTeachers.length === 0) return false;
+
+    const isSlotOccupiedForClass = fullSchedule.some(l => l.classId === parseInt(selectedClassId) && l.day === day && formatUtcTime(l.startTime) === time);
+                
+    if (isSlotOccupiedForClass) return false;
+    
+    const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
+        const isTeacherBusy = fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatUtcTime(l.startTime) === time);
+        
+        const [hour, minute] = time.split(':').map(Number);
+        const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
+        const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+        
+        const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, wizardData.teacherConstraints || []);
+        
+        return !isTeacherBusy && !constraint;
+    });
+
+    return isAnyTeacherAvailable;
+  }, [selectedSubject, viewMode, selectedClassId, wizardData, fullSchedule]);
+
+  const getSubjectBgColor = useCallback((subjectId: number): string => {
+    const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
+    const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
+    return subjectColors[index % subjectColors.length] || 'bg-muted';
+  }, [wizardData.subjects]);
+
+  const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
   
   const exportToPDF = () => { window.print(); };
 
@@ -336,13 +389,14 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ wizardData, schedul
                           </TableCell>
                         );
                     } else {
+                        const isHighlighted = isSlotAvailable(dayEnum, time);
                         return (
                             <TableCell key={cellId} className="p-0 border align-top">
                                 <DroppableEmptyCell
                                     day={dayEnum}
                                     timeSlot={time}
                                     onDoubleClick={onEmptyCellDoubleClick}
-                                    isHighlighted={highlightedSlots.includes(cellId)}
+                                    isHighlighted={isHighlighted}
                                     highlightColor={highlightColor}
                                 />
                             </TableCell>

@@ -23,13 +23,7 @@ interface ScheduleEditorProps {
 
 type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
 
-const formatUtcTime = (dateString: string | Date): string => {
-    const date = new Date(dateString);
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    return `${hours}:00`;
-};
-
-const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWizard }) => {
+export default function ScheduleEditor({ wizardData, onBackToWizard }: ScheduleEditorProps) {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
 
@@ -42,10 +36,8 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class');
     const [selectedClassId, setSelectedClassId] = useState<string>(wizardData.classes[0]?.id.toString() || '');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>(wizardData.teachers[0]?.id || '');
-    const [highlightedSlots, setHighlightedSlots] = useState<string[]>([]);
     
-    const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
-
+    // Correctly define filteredSchedule using useMemo
     const filteredSchedule = useMemo(() => {
         if (viewMode === 'class') {
             if (!selectedClassId) return [];
@@ -55,55 +47,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
             return schedule.filter(lesson => lesson.teacherId === selectedTeacherId);
         }
     }, [schedule, viewMode, selectedClassId, selectedTeacherId]);
-
-    const getSubjectBgColor = useCallback((subjectId: number): string => {
-        const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
-        const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
-        return subjectColors[index % subjectColors.length] || 'bg-muted';
-    }, [wizardData.subjects]);
-
-    useEffect(() => {
-        if (!selectedSubject || viewMode !== 'class' || !selectedClassId) {
-            setHighlightedSlots([]);
-            return;
-        }
-
-        const availableSlots: string[] = [];
-        const schoolDays = wizardData.school.schoolDays.map(d => d.toUpperCase() as Day);
-        
-        const potentialTeachers = wizardData.teachers.filter(t =>
-            t.subjects.some(s => s.id === selectedSubject.id)
-        );
-
-        if (potentialTeachers.length > 0) {
-            schoolDays.forEach(day => {
-                timeSlots.forEach(time => {
-                    const slotId = `${day}-${time}`;
-                    const isSlotOccupiedForClass = schedule.some(l => l.classId === parseInt(selectedClassId) && l.day === day && formatUtcTime(l.startTime) === time);
-                    
-                    if (!isSlotOccupiedForClass) {
-                        const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
-                            const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatUtcTime(l.startTime) === time);
-                            
-                            const [hour, minute] = time.split(':').map(Number);
-                            const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
-                            const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-                            
-                            const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, wizardData.teacherConstraints || []);
-                            
-                            return !isTeacherBusy && !constraint;
-                        });
-
-                        if (isAnyTeacherAvailable) {
-                            availableSlots.push(slotId);
-                        }
-                    }
-                });
-            });
-        }
-        setHighlightedSlots(availableSlots);
-    }, [selectedSubject, schedule, selectedClassId, viewMode, wizardData, timeSlots]);
-
 
     const handleDoubleClickOnSlot = useCallback((day: Day, time: string) => {
         if (!selectedSubject) {
@@ -122,7 +65,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
         );
 
         const availableTeacher = potentialTeachers.find(teacher => {
-            const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatUtcTime(l.startTime) === time);
+            const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && new Date(l.startTime).getUTCHours() === hour);
             const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
             const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
             const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, wizardData.teacherConstraints || []);
@@ -136,7 +79,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
 
         let assignedRoomId: number | null = null;
         const availableRoom = wizardData.rooms.find(r => 
-            !schedule.some(l => l.day === day && formatUtcTime(l.startTime) === time && l.classroomId === r.id)
+            !schedule.some(l => l.day === day && new Date(l.startTime).getUTCHours() === hour && l.classroomId === r.id)
         );
         assignedRoomId = availableRoom ? availableRoom.id : null;
 
@@ -153,7 +96,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
 
         dispatch(addLesson(newLesson));
         toast({ title: "Cours ajouté", description: `"${selectedSubject.name}" a été ajouté à l'emploi du temps.` });
-        dispatch(toggleSelectedSubject(selectedSubject)); // Deselect after placement
+        dispatch(toggleSelectedSubject(selectedSubject));
     }, [selectedSubject, selectedClassId, viewMode, wizardData, schedule, dispatch, toast]);
 
     const handleDeleteLesson = (lessonId: number) => {
@@ -169,8 +112,6 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
             toast({ variant: "destructive", title: "Erreur de sauvegarde", description: (result.payload as string) || "Une erreur inconnue est survenue." });
         }
     };
-    
-    const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
 
     return (
         <div className="flex flex-col md:flex-row gap-6">
@@ -204,7 +145,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                             </SelectContent>
                         </Select>
                     </TabsContent>
-                        <TabsContent value="teacher" className="mt-4">
+                    <TabsContent value="teacher" className="mt-4">
                         <Label>Afficher l'emploi du temps pour :</Label>
                         <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId} disabled={wizardData.teachers.length === 0}>
                             <SelectTrigger className="w-full md:w-72 mt-1">
@@ -221,15 +162,15 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
                 <TimetableDisplay 
                     wizardData={wizardData} 
                     scheduleData={filteredSchedule}
+                    fullSchedule={schedule}
                     isEditable={true} 
                     onDeleteLesson={handleDeleteLesson}
-                    highlightedSlots={highlightedSlots}
-                    highlightColor={highlightColor}
                     onEmptyCellDoubleClick={handleDoubleClickOnSlot}
+                    selectedSubject={selectedSubject}
+                    viewMode={viewMode}
+                    selectedClassId={selectedClassId}
                 />
             </div>
         </div>
     );
 };
-
-export default ScheduleEditor;
