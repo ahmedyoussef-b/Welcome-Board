@@ -142,6 +142,11 @@ export const teachersSlice = createSlice({
               }
         );
     },
+    unassignAllClasses: (state) => {
+        state.items.forEach(teacher => {
+            teacher.classes = [];
+        });
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -185,6 +190,6 @@ export const teachersSlice = createSlice({
   }
 });
 
-export const { setAllTeachers, assignClassToTeacher, unassignClassFromTeacher } = teachersSlice.actions;
+export const { setAllTeachers, assignClassToTeacher, unassignClassFromTeacher, unassignAllClasses } = teachersSlice.actions;
 export const { selectAllProfesseurs, getProfesseursStatus, getProfesseursError } = teachersSlice.selectors;
 export default teachersSlice.reducer;

@@ -4,15 +4,16 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trash2, UserPlus, Copy, Save, Loader2 } from 'lucide-react';
+import { BookOpen, Trash2, UserPlus, Copy, Save, Loader2, RotateCcw } from 'lucide-react';
 import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs, saveTeacherAssignments } from '@/lib/redux/features/teachers/teachersSlice';
+import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs, saveTeacherAssignments, unassignAllClasses } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 // --- Internal Components ---
 
@@ -142,6 +143,14 @@ const TeachersForm: React.FC = () => {
     setIsSaving(false);
   };
 
+  const handleResetAssignments = () => {
+      dispatch(unassignAllClasses());
+      toast({
+          title: "Assignations réinitialisées",
+          description: "Toutes les classes ont été désassignées. Vous pouvez maintenant recommencer.",
+      });
+  };
+
   return (
       <div className="space-y-8">
         <Card className="p-6 sticky top-0 bg-background/90 backdrop-blur-sm z-10">
@@ -150,10 +159,33 @@ const TeachersForm: React.FC = () => {
                     <UserPlus className="text-primary" size={20} />
                     <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
                 </div>
-                <Button onClick={handleSaveChanges} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                    {isSaving ? 'Sauvegarde...' : 'Sauvegarder les Assignations'}
-                </Button>
+                <div className="flex items-center gap-2">
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                         <Button variant="outline" disabled={isSaving}>
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Réinitialiser
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Confirmer la réinitialisation ?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Cette action va désassigner toutes les classes de tous les professeurs. Vous pourrez ensuite recommencer les assignations. Voulez-vous continuer ?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Annuler</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleResetAssignments}>Confirmer</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+
+                    <Button onClick={handleSaveChanges} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        {isSaving ? 'Sauvegarde...' : 'Sauvegarder les Assignations'}
+                    </Button>
+                </div>
             </div>
             <p className="text-sm text-muted-foreground">Cliquez pour sélectionner, Ctrl+Clic pour une sélection multiple. Double-cliquez sur un professeur pour assigner.</p>
             {selectedClasses.length > 0 && (
