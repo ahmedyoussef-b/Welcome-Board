@@ -188,58 +188,65 @@ const InteractiveEmptyCell: React.FC<{
     }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableSubjects = useMemo(() => {
-      if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.school || !Array.isArray(wizardData.teachers) || !Array.isArray(wizardData.subjects) || !Array.isArray(wizardData.teacherAssignments) || !Array.isArray(wizardData.lessonRequirements)) return [];
-      const { school, teachers, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [], teacherAssignments } = wizardData;
+        if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.subjects || !Array.isArray(wizardData.subjects)) {
+            return [];
+        }
 
-      const classIdNum = parseInt(selectedViewId, 10);
-      if (isNaN(classIdNum)) return [];
+        const { school, teachers, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [], teacherAssignments = [] } = wizardData;
 
-      const scheduledHoursBySubject = fullSchedule
-          .filter(l => l.classId === classIdNum)
-          .reduce((acc, l) => {
-              acc[l.subjectId] = (acc[l.subjectId] || 0) + 1;
-              return acc;
-          }, {} as Record<number, number>);
+        if (!school || !teachers || !subjects || !lessonRequirements || !teacherAssignments) {
+            return [];
+        }
 
-      return subjects.filter(subject => {
-          const requirement = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id);
-          const requiredHours = requirement ? requirement.hours : (subject.weeklyHours || 0);
-          const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
-          if (requiredHours > 0 && scheduledHours >= requiredHours) {
-              return false;
-          }
+        const classIdNum = parseInt(selectedViewId, 10);
+        if (isNaN(classIdNum)) return [];
 
-          const subjectReq = subjectRequirements?.find(r => r.subjectId === subject.id);
-          if (subjectReq) {
-              const amSlots = ['08:00', '09:00', '10:00', '11:00'];
-              const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
-              if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) return false;
-              if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) return false;
-          }
+        const scheduledHoursBySubject = fullSchedule
+            .filter(l => l.classId === classIdNum)
+            .reduce((acc, l) => {
+                // Each lesson object represents one scheduled hour (or session).
+                acc[l.subjectId] = (acc[l.subjectId] || 0) + 1;
+                return acc;
+            }, {} as Record<number, number>);
 
-          const assignedTeacherId = teacherAssignments.find(a => a.subjectId === subject.id && a.classIds.includes(classIdNum))?.teacherId;
-          if (!assignedTeacherId) return false;
-          
-          const teacher = teachers.find(t => t.id === assignedTeacherId);
-          if (!teacher) return false;
+        return subjects.filter(subject => {
+            const requiredHours = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id)?.hours ?? subject.weeklyHours ?? 0;
+            const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
+            if (requiredHours > 0 && scheduledHours >= requiredHours) {
+                return false;
+            }
 
-          if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
-          
-          const [hour, minute] = timeSlot.split(':').map(Number);
-          const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
-          const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-          if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
-              return false;
-          }
-          
-          if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && wizardData.rooms?.length > 0) {
-              const isRoomOccupied = fullSchedule.some(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId === subjectReq.requiredRoomId);
-              if (isRoomOccupied) return false;
-          }
+            const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
+            if (subjectReq) {
+                const amSlots = ['08:00', '09:00', '10:00', '11:00'];
+                const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
+                if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) return false;
+                if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) return false;
+            }
 
-          return true;
-      });
-  }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
+            const assignment = teacherAssignments.find(a => a.subjectId === subject.id && a.classIds.includes(classIdNum));
+            if (!assignment) return false;
+            
+            const teacher = teachers.find(t => t.id === assignment.teacherId);
+            if (!teacher) return false; 
+            
+            if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
+            
+            const [hour, minute] = timeSlot.split(':').map(Number);
+            const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
+            const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+            if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
+                return false;
+            }
+            
+            if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && wizardData.rooms && wizardData.rooms.length > 0) {
+                const isRoomOccupied = fullSchedule.some(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId === subjectReq.requiredRoomId);
+                if (isRoomOccupied) return false;
+            }
+
+            return true;
+        });
+    }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
 
 
     return (
