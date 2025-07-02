@@ -16,46 +16,8 @@ import teacherConstraintsReducer from './features/teacherConstraintsSlice';
 import subjectRequirementsReducer from './features/subjectRequirementsSlice';
 import teacherAssignmentsReducer from './features/teacherAssignmentsSlice';
 import schoolConfigReducer from './features/schoolConfigSlice';
+import scheduleDraftReducer from './features/scheduleDraftSlice';
 
-
-const WIZARD_STATE_KEY = 'shuddleWizardState';
-
-const loadState = () => {
-  try {
-    const serializedState = typeof window !== 'undefined' ? localStorage.getItem(WIZARD_STATE_KEY) : null;
-    if (serializedState === null) {
-      return undefined;
-    }
-    return JSON.parse(serializedState);
-  } catch (err) {
-    console.warn("Could not load wizard state from localStorage", err);
-    return undefined;
-  }
-};
-
-const saveState = (state: any) => {
-  try {
-    const stateToPersist = {
-      schoolConfig: state.schoolConfig,
-      classes: state.classes,
-      subjects: state.subjects,
-      teachers: state.teachers,
-      classrooms: state.classrooms,
-      grades: state.grades,
-      lessonRequirements: state.lessonRequirements,
-      teacherConstraints: state.teacherConstraints,
-      subjectRequirements: state.subjectRequirements,
-      teacherAssignments: state.teacherAssignments,
-      schedule: state.schedule,
-    };
-    const serializedState = JSON.stringify(stateToPersist);
-    localStorage.setItem(WIZARD_STATE_KEY, serializedState);
-  } catch (err) {
-    console.warn("Could not save wizard state to localStorage", err);
-  }
-};
-
-const preloadedState = loadState();
 
 export const store = configureStore({
   reducer: {
@@ -76,18 +38,13 @@ export const store = configureStore({
     subjectRequirements: subjectRequirementsReducer,
     teacherAssignments: teacherAssignmentsReducer,
     schoolConfig: schoolConfigReducer,
+    scheduleDraft: scheduleDraftReducer,
   },
-  preloadedState,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
       .concat(authApi.middleware)
       .concat(entityApi.middleware),
 });
-
-store.subscribe(() => {
-  saveState(store.getState());
-});
-
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

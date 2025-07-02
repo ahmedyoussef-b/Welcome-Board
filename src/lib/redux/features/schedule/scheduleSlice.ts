@@ -47,7 +47,7 @@ export const scheduleSlice = createSlice({
     setInitialSchedule(state, action: PayloadAction<SchedulableLesson[]>) {
       state.items = action.payload.map((lesson, index) => ({
         ...lesson,
-        id: -(Date.now() + index),
+        id: -(Date.now() + index), // Assign temporary negative ID
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       })) as Lesson[];
@@ -100,6 +100,7 @@ export const scheduleSlice = createSlice({
       state.items.push(newLesson as Lesson);
     },
     removeLesson(state, action: PayloadAction<number>) {
+      // Use filter to create a new array, ensuring immutability
       state.items = state.items.filter(lesson => lesson.id !== action.payload);
     },
     extendLesson(state, action: PayloadAction<{ lessonId: number }>) {

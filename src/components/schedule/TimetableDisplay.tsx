@@ -198,9 +198,7 @@ const InteractiveEmptyCell: React.FC<{
         const scheduledHoursBySubject = fullSchedule
             .filter(l => l.classId === classIdNum)
             .reduce((acc, l) => {
-                const durationMinutes = (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()) / 60000;
-                const sessions = Math.round(durationMinutes / wizardData.school.sessionDuration);
-                acc[l.subjectId] = (acc[l.subjectId] || 0) + sessions;
+                acc[l.subjectId] = (acc[l.subjectId] || 0) + 1;
                 return acc;
             }, {} as Record<number, number>);
 
