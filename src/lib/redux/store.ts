@@ -14,6 +14,7 @@ import lessonRequirementsReducer from './features/lessonRequirements/lessonRequi
 import gradesReducer from './features/grades/gradesSlice';
 import teacherConstraintsReducer from './features/teacherConstraintsSlice';
 import subjectRequirementsReducer from './features/subjectRequirementsSlice';
+import wizardReducer from './features/wizardSlice';
 
 export const store = configureStore({
   reducer: {
@@ -32,6 +33,7 @@ export const store = configureStore({
     grades: gradesReducer,
     teacherConstraints: teacherConstraintsReducer,
     subjectRequirements: subjectRequirementsReducer,
+    wizard: wizardReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware()
