@@ -87,41 +87,54 @@ export const teachersSlice = createSlice({
       state.status = 'succeeded';
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
+        console.log('[teachersSlice] ACTION: assignClassToTeacher, Payload:', action.payload);
         const { teacherId, classData } = action.payload;
         const teacherIndex = state.items.findIndex(t => t.id === teacherId);
 
         if (teacherIndex !== -1) {
-            const teacher = state.items[teacherIndex];
-            if (!teacher.classes.some(c => c.id === classData.id)) {
-                // Create a new teacher object with a new, sorted array for classes
-                const updatedTeacher = {
-                    ...teacher,
-                    classes: [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name)),
-                };
-                
-                // Create a new items array, replacing the old teacher object with the updated one
-                state.items = state.items.map(t => 
-                    t.id === teacherId ? updatedTeacher : t
-                );
-            }
+            console.log('[teachersSlice] Teacher Found:', state.items[teacherIndex].name, 'at index', teacherIndex);
+            console.log('[teachersSlice] Old classes:', state.items[teacherIndex].classes.map(c => c.name));
+            
+            // Create a new teacher object with a new, sorted array for classes
+            const updatedTeacher = {
+                ...state.items[teacherIndex],
+                classes: [...state.items[teacherIndex].classes, classData].sort((a,b) => a.name.localeCompare(b.name)),
+            };
+            
+            console.log('[teachersSlice] New classes:', updatedTeacher.classes.map(c => c.name));
+            
+            // Create a new items array, replacing the old teacher object with the updated one
+            const newItems = [...state.items];
+            newItems[teacherIndex] = updatedTeacher;
+            state.items = newItems;
+            console.log('[teachersSlice] State updated.');
+        } else {
+            console.log('[teachersSlice] Teacher not found for ID:', teacherId);
         }
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
+        console.log('[teachersSlice] ACTION: unassignClassFromTeacher, Payload:', action.payload);
         const { teacherId, classId } = action.payload;
         const teacherIndex = state.items.findIndex(t => t.id === teacherId);
 
         if (teacherIndex !== -1) {
-            const teacher = state.items[teacherIndex];
+             console.log('[teachersSlice] Teacher Found:', state.items[teacherIndex].name, 'at index', teacherIndex);
+            console.log('[teachersSlice] Old classes:', state.items[teacherIndex].classes.map(c => c.name));
             // Create a new teacher object with a new, filtered array for classes
             const updatedTeacher = {
-                ...teacher,
-                classes: teacher.classes.filter(c => c.id !== classId),
+                ...state.items[teacherIndex],
+                classes: state.items[teacherIndex].classes.filter(c => c.id !== classId),
             };
+            
+            console.log('[teachersSlice] New classes after unassign:', updatedTeacher.classes.map(c => c.name));
 
             // Create a new items array, replacing the old teacher object with the updated one
-            state.items = state.items.map(t => 
-                t.id === teacherId ? updatedTeacher : t
-            );
+            const newItems = [...state.items];
+            newItems[teacherIndex] = updatedTeacher;
+            state.items = newItems;
+            console.log('[teachersSlice] State updated.');
+        } else {
+            console.log('[teachersSlice] Teacher not found for ID:', teacherId);
         }
     },
   },
