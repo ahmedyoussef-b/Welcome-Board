@@ -16,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { ScrollArea } from '../ui/scroll-area';
+import { cn } from '@/lib/utils';
+
 
 const TeachersForm: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -92,18 +94,26 @@ const TeachersForm: React.FC = () => {
                          <Label className="text-xs text-muted-foreground">Classes à prendre en charge pour cette matière :</Label>
                          <ScrollArea className="h-40 mt-2 border rounded-md p-3">
                            <div className="space-y-2">
-                             {allClasses.map(cls => (
-                               <div key={cls.id} className="flex items-center space-x-2">
-                                 <Checkbox
-                                   id={`check-${teacher.id}-${subject.id}-${cls.id}`}
-                                   checked={assignedClassesForSubject.includes(cls.id)}
-                                   onCheckedChange={(checked) => handleClassChange(teacher.id, subject.id, cls.id, !!checked)}
-                                 />
-                                 <Label htmlFor={`check-${teacher.id}-${subject.id}-${cls.id}`} className="text-sm font-normal">
-                                   {cls.name}
-                                 </Label>
-                               </div>
-                             ))}
+                             {allClasses.map(cls => {
+                                const isAssignedToOther = assignments.some(a => 
+                                  a.subjectId === subject.id &&
+                                  a.teacherId !== teacher.id &&
+                                  a.classIds.includes(cls.id)
+                                );
+                               return (
+                                 <div key={cls.id} className="flex items-center space-x-2">
+                                   <Checkbox
+                                     id={`check-${teacher.id}-${subject.id}-${cls.id}`}
+                                     checked={assignedClassesForSubject.includes(cls.id)}
+                                     onCheckedChange={(checked) => handleClassChange(teacher.id, subject.id, cls.id, !!checked)}
+                                     disabled={isAssignedToOther}
+                                   />
+                                   <Label htmlFor={`check-${teacher.id}-${subject.id}-${cls.id}`} className={cn("text-sm font-normal", isAssignedToOther && "text-muted-foreground line-through")}>
+                                     {cls.name}
+                                   </Label>
+                                 </div>
+                               );
+                             })}
                            </div>
                          </ScrollArea>
                        </CardContent>
