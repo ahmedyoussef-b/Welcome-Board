@@ -1,7 +1,7 @@
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trash2, UserPlus, Copy } from 'lucide-react';
@@ -42,11 +42,11 @@ function TeacherCard({ teacher, onUnassign, onAssign }: { teacher: TeacherWithDe
         {teacher.classes.map(cls => (
           <Badge key={cls.id} variant="secondary" className="flex items-center gap-1">
             {cls.name}
-            <button 
-              onClick={(e) => { 
+            <button
+              onClick={(e) => {
                 e.stopPropagation(); // Prevent the double-click event on the parent div
-                onUnassign(teacher.id, cls.id); 
-              }} 
+                onUnassign(teacher.id, cls.id);
+              }}
               className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
             >
               <Trash2 className="h-3 w-3 text-destructive" />
@@ -65,7 +65,7 @@ const TeachersForm: React.FC = () => {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
 
-  const teachers = useAppSelector(selectAllProfesseurs);
+  const allTeachers = useAppSelector(selectAllProfesseurs);
   const allClasses = useAppSelector(selectAllClasses);
   const allSubjects = useAppSelector(selectAllMatieres);
 
@@ -74,10 +74,8 @@ const TeachersForm: React.FC = () => {
   const handleSelectClass = (classData: ClassWithGrade) => {
     if (selectedClass?.id === classData.id) {
         setSelectedClass(null);
-        toast({ title: 'Classe désélectionnée' });
     } else {
         setSelectedClass(classData);
-        toast({ title: 'Classe sélectionnée', description: `"${classData.name}" est prête à être assignée.` });
     }
   };
 
@@ -91,7 +89,7 @@ const TeachersForm: React.FC = () => {
         return;
     }
 
-    const teacher = teachers.find(t => t.id === teacherId);
+    const teacher = allTeachers.find(t => t.id === teacherId);
     if (teacher && teacher.classes.some(c => c.id === selectedClass.id)) {
         toast({
             variant: 'destructive',
@@ -102,10 +100,6 @@ const TeachersForm: React.FC = () => {
     }
 
     dispatch(assignClassToTeacher({ teacherId, classData: selectedClass }));
-    toast({
-        title: 'Classe assignée !',
-        description: `"${selectedClass.name}" a été assignée à ${teacher?.name} ${teacher?.surname}.`,
-    });
     setSelectedClass(null); // Clear selection after assignment
   };
 
@@ -130,18 +124,18 @@ const TeachersForm: React.FC = () => {
         </Card>
 
         {allSubjects.map((subject) => {
-            const subjectTeachers = teachers.filter(teacher => 
+            const subjectTeachers = allTeachers.filter(teacher =>
                 teacher.subjects.some(s => s.id === subject.id)
             );
 
             if (subjectTeachers.length === 0) {
                 return null;
             }
-            
+
             const assignedClassIdsInGroup = new Set(
                 subjectTeachers.flatMap(t => t.classes.map(c => c.id))
             );
-            
+
             const unassignedClassesForGroup = allClasses.filter(
                 c => !assignedClassIdsInGroup.has(c.id)
             );
@@ -152,16 +146,16 @@ const TeachersForm: React.FC = () => {
                         <BookOpen className="text-primary" size={20} />
                         <h3 className="text-lg font-semibold">Matière : {subject.name}</h3>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="md:col-span-1">
                              <h4 className="font-semibold mb-2">Classes non assignées ({unassignedClassesForGroup.length})</h4>
                             <div className="p-4 border rounded-lg bg-background min-h-[100px] max-h-[400px] overflow-y-auto grid grid-cols-1 gap-2">
                                 {unassignedClassesForGroup.length > 0 ? (
                                     unassignedClassesForGroup.map(cls => (
-                                        <SelectableClass 
-                                            key={cls.id} 
-                                            classData={cls} 
+                                        <SelectableClass
+                                            key={cls.id}
+                                            classData={cls}
                                             isSelected={selectedClass?.id === cls.id}
                                             onSelect={handleSelectClass}
                                         />
@@ -177,9 +171,9 @@ const TeachersForm: React.FC = () => {
                         <div className="space-y-4 md:col-span-2">
                             <h4 className="font-semibold mb-2">Professeurs de {subject.name}</h4>
                             {subjectTeachers.map(teacher => (
-                                <TeacherCard 
-                                    key={teacher.id} 
-                                    teacher={teacher} 
+                                <TeacherCard
+                                    key={teacher.id}
+                                    teacher={teacher}
                                     onUnassign={handleUnassign}
                                     onAssign={handleAssignClass}
                                 />
