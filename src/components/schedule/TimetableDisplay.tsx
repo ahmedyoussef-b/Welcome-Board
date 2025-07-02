@@ -190,7 +190,7 @@ const InteractiveEmptyCell: React.FC<{
     }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableSubjects = useMemo(() => {
-        if (viewMode !== 'class' || !selectedViewId || !wizardData.subjects) {
+        if (viewMode !== 'class' || !selectedViewId || !wizardData.subjects || !wizardData.school) {
             return [];
         }
         const classIdNum = parseInt(selectedViewId, 10);
