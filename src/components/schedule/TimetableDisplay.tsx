@@ -5,7 +5,7 @@ import React, { useMemo, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Download, Printer, Trash2, Building } from 'lucide-react';
+import { Download, Printer, Trash2, Building, BookOpen } from 'lucide-react';
 import type { WizardData, Lesson, Subject } from '@/types';
 import { Day } from '@prisma/client';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
@@ -14,20 +14,17 @@ import { updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { mergeConsecutiveLessons } from '@/lib/schedule-utils';
+import { mergeConsecutiveLessons, findConflictingConstraint } from '@/lib/schedule-utils';
+import { ScrollArea } from '../ui/scroll-area';
 
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
 
-const formatUtcTime = (dateString: string | Date): string => {
-    const date = new Date(dateString);
-    const hours = String(date.getUTCHours()).padStart(2, '0');
-    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
-    return `${hours}:${minutes}`;
-};
+const formatTimeSimple = (date: string | Date): string => `${new Date(date).getUTCHours().toString().padStart(2, '0')}:00`;
 
 
 // --- Internal Components ---
+
 const RoomSelectorPopover: React.FC<{
   lesson: Lesson | null;
   day: Day;
@@ -39,33 +36,17 @@ const RoomSelectorPopover: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
 
     const occupiedRoomIds = useMemo(() => {
-        const [hour, minute] = timeSlot.split(':').map(Number);
-        const checkTime = new Date(Date.UTC(1970, 0, 1, hour, minute)).getTime();
-        
-        if (!Array.isArray(fullSchedule)) {
-            return [];
-        }
-
-        return fullSchedule
-            .filter(l => {
-                if (lesson && l.id === lesson.id) return false;
-
-                const lessonStart = new Date(l.startTime);
-                const lessonStartTime = new Date(0);
-                lessonStartTime.setUTCHours(lessonStart.getUTCHours(), lessonStart.getUTCMinutes(), 0, 0);
-
-                return l.day === day &&
-                       lessonStartTime.getTime() === checkTime &&
-                       l.classroomId != null;
-            })
-            .map(l => l.classroomId) as number[];
-    }, [day, timeSlot, fullSchedule, lesson]);
+        if (!Array.isArray(fullSchedule)) return new Set<number>();
+        return new Set(
+            fullSchedule
+                .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
+                .map(l => l.classroomId!)
+        );
+    }, [day, timeSlot, fullSchedule]);
     
     const availableRooms = useMemo(() => {
-        if (!Array.isArray(wizardData.rooms)) {
-            return [];
-        }
-        return wizardData.rooms.filter(room => !occupiedRoomIds.includes(room.id));
+        if (!Array.isArray(wizardData.rooms)) return [];
+        return wizardData.rooms.filter(room => !occupiedRoomIds.has(room.id));
     }, [wizardData.rooms, occupiedRoomIds]);
     
     const handleRoomChange = (newRoomId: number | null) => {
@@ -169,7 +150,7 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
                     >
                         <Trash2 className="h-3 w-3" />
                     </button>
-                    <RoomSelectorPopover lesson={lesson} day={lesson.day} timeSlot={formatUtcTime(lesson.startTime)} wizardData={wizardData} fullSchedule={fullSchedule} />
+                    <RoomSelectorPopover lesson={lesson} day={lesson.day} timeSlot={formatTimeSimple(lesson.startTime)} wizardData={wizardData} fullSchedule={fullSchedule} />
                 </>
             )}
             <div className="font-semibold text-foreground">{getSubjectName(lesson.subjectId)}</div>
@@ -180,25 +161,97 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     );
 };
 
-const DroppableEmptyCell = ({ day, timeSlot, onClick, isAvailable, isOver, highlightColorClass }: { day: Day; timeSlot: string; onClick?: (day: Day, timeSlot: string) => void; isAvailable: boolean; isOver: boolean; highlightColorClass: string | null; }) => {
+const InteractiveEmptyCell: React.FC<{
+  day: Day;
+  timeSlot: string;
+  viewMode: 'class' | 'teacher';
+  selectedViewId: string;
+  wizardData: WizardData;
+  schedule: Lesson[];
+  onAddLesson: (subject: Subject, day: Day, timeSlot: string) => void;
+}> = ({ day, timeSlot, viewMode, selectedViewId, wizardData, schedule, onAddLesson }) => {
     const { setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
         data: { day, time: timeSlot }
     });
 
+    const { school, subjects, teachers, rooms, teacherConstraints = [] } = wizardData;
+
+    const availableRooms = useMemo(() => {
+        if (!Array.isArray(rooms)) return [];
+        const occupiedRoomIds = new Set(
+            schedule.filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId).map(l => l.classroomId)
+        );
+        return rooms.filter(room => !occupiedRoomIds.has(room.id));
+    }, [day, timeSlot, schedule, rooms]);
+
+    const availableSubjects = useMemo(() => {
+        if (viewMode !== 'class' || !selectedViewId) return [];
+        const classIdNum = parseInt(selectedViewId, 10);
+        if (isNaN(classIdNum)) return [];
+
+        // Is the class itself busy?
+        if (schedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) {
+            return [];
+        }
+
+        return subjects.filter(subject => {
+            const isTeacherAvailable = teachers.some(teacher => {
+                const canTeach = teacher.subjects.some(s => s.id === subject.id);
+                if (!canTeach) return false;
+
+                const isBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot);
+                if (isBusy) return false;
+
+                const [hour, minute] = timeSlot.split(':').map(Number);
+                const lessonEndTimeDate = new Date(Date.UTC(0, 0, 0, hour, minute + school.sessionDuration));
+                const lessonEndTimeStr = `${String(lessonEndTimeDate.getUTCHours()).padStart(2, '0')}:${String(lessonEndTimeDate.getUTCMinutes()).padStart(2, '0')}`;
+                const constraint = findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints);
+                
+                return !constraint;
+            });
+            return isTeacherAvailable;
+        });
+    }, [day, timeSlot, schedule, wizardData, selectedViewId, viewMode]);
+
     return (
-        <div
-            ref={setNodeRef}
-            onClick={() => isAvailable && onClick?.(day, timeSlot)}
-            className={cn(
-                'h-24 w-full rounded-md transition-colors relative group p-1',
-                isOver && 'ring-2 ring-primary',
-                !isOver && isAvailable && highlightColorClass,
-                !isOver && isAvailable && 'border-2 border-dashed border-primary/50 animate-subtle-pulse',
-                !isAvailable && 'hover:bg-muted/50',
-                isAvailable && 'cursor-pointer'
-            )}
-        >
+        <div ref={setNodeRef} className="h-24 w-full rounded-md transition-colors relative group p-1">
+            <div className="absolute bottom-1 right-1 flex gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                 {viewMode === 'class' && (
+                     <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-7 w-7"><BookOpen size={14} /></Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64">
+                            <h4 className="font-medium text-sm mb-2">Matières possibles</h4>
+                            <ScrollArea className="max-h-48">
+                                <div className="space-y-1">
+                                    {availableSubjects.length > 0 ? availableSubjects.map(subject => (
+                                        <Button key={subject.id} variant="outline" size="sm" className="w-full justify-start" onClick={() => onAddLesson(subject, day, timeSlot)}>
+                                            {subject.name}
+                                        </Button>
+                                    )) : <p className="text-xs text-muted-foreground p-2">Aucune matière disponible pour ce créneau.</p>}
+                                </div>
+                            </ScrollArea>
+                        </PopoverContent>
+                    </Popover>
+                 )}
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7"><Building size={14} /></Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56">
+                        <h4 className="font-medium text-sm mb-2">Salles libres</h4>
+                        <ScrollArea className="max-h-48">
+                            <div className="space-y-1">
+                                {availableRooms.length > 0 ? availableRooms.map(room => (
+                                    <div key={room.id} className="text-sm p-1">{room.name}</div>
+                                )) : <p className="text-xs text-muted-foreground p-2">Aucune salle libre.</p>}
+                            </div>
+                        </ScrollArea>
+                    </PopoverContent>
+                </Popover>
+            </div>
         </div>
     );
 };
@@ -211,9 +264,9 @@ interface TimetableDisplayProps {
   fullSchedule: Lesson[];
   isEditable?: boolean;
   onDeleteLesson?: (lessonId: number) => void;
-  onEmptyCellClick?: (day: Day, timeSlot: string) => void;
-  selectedSubject: Subject | null;
-  availableSlots: Set<string>;
+  onAddLesson?: (subject: Subject, day: Day, timeSlot: string) => void;
+  viewMode: 'class' | 'teacher';
+  selectedViewId: string;
 }
 
 const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ 
@@ -222,9 +275,9 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
     fullSchedule,
     isEditable = false, 
     onDeleteLesson = () => {}, 
-    onEmptyCellClick,
-    selectedSubject,
-    availableSlots,
+    onAddLesson = () => {},
+    viewMode,
+    selectedViewId,
 }) => {
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
@@ -237,7 +290,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
 
     mergedLessons.forEach((lesson) => {
       const day = lesson.day;
-      const time = formatUtcTime(lesson.startTime);
+      const time = formatTimeSimple(lesson.startTime);
       const cellId = `${day}-${time}`;
 
       if (localSpannedSlots.has(cellId)) return;
@@ -262,15 +315,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
     return { scheduleGrid: grid, spannedSlots: localSpannedSlots };
   }, [scheduleData, wizardData, timeSlots]);
   
-  const getSubjectBgColor = useCallback((subjectId: number): string => {
-    const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
-    const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
-    return subjectColors[index % subjectColors.length] || 'bg-muted';
-  }, [wizardData.subjects]);
-  
   const exportToPDF = () => { window.print(); };
-
-  const highlightColorClass = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
 
   return (
     <div className="space-y-6 mt-4">
@@ -295,53 +340,55 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
 
       <Card>
         <CardContent className="p-4">
-          <Table className="min-w-full border-collapse">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20 border">Horaires</TableHead>
-                {schoolDays.map(day => <TableHead key={day} className="text-center border min-w-32">{day}</TableHead>)}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {timeSlots.map((time) => (
-                <TableRow key={time}>
-                  <TableCell className="font-medium bg-muted/50 border h-24">{time}</TableCell>
-                  {schoolDays.map(day => {
-                    const dayEnum = dayMapping[day];
-                    const cellId = `${dayEnum}-${time}`;
-
-                    if (spannedSlots.has(cellId)) {
-                        return null; // This cell is covered by a rowSpan
-                    }
-
-                    const cellData = scheduleGrid[cellId];
-                    const isAvailable = availableSlots ? availableSlots.has(cellId) : false;
-                    
-                    if (cellData) {
-                        return (
-                          <TableCell key={cellId} rowSpan={cellData.rowSpan} className="p-0 border align-top relative">
-                             <DraggableLesson lesson={cellData.lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
-                          </TableCell>
-                        );
-                    } else {
-                        return (
-                            <TableCell key={cellId} className="p-0 border align-top">
-                                <DroppableEmptyCell
-                                    day={dayEnum}
-                                    timeSlot={time}
-                                    onClick={onEmptyCellClick}
-                                    isAvailable={isAvailable}
-                                    highlightColorClass={highlightColorClass}
-                                    isOver={false} // This will be handled by DndContext
-                                />
-                            </TableCell>
-                        );
-                    }
-                  })}
+          <div className="relative w-full overflow-auto">
+            <Table className="min-w-full border-collapse">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-20 border">Horaires</TableHead>
+                  {schoolDays.map(day => <TableHead key={day} className="text-center border min-w-32">{day}</TableHead>)}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {timeSlots.map((time) => (
+                  <TableRow key={time}>
+                    <TableCell className="font-medium bg-muted/50 border h-24">{time}</TableCell>
+                    {schoolDays.map(day => {
+                      const dayEnum = dayMapping[day];
+                      const cellId = `${dayEnum}-${time}`;
+
+                      if (spannedSlots.has(cellId)) {
+                          return null; // This cell is covered by a rowSpan
+                      }
+
+                      const cellData = scheduleGrid[cellId];
+                      
+                      if (cellData) {
+                          return (
+                            <TableCell key={cellId} rowSpan={cellData.rowSpan} className="p-0 border align-top relative">
+                               <DraggableLesson lesson={cellData.lesson} wizardData={wizardData} onDelete={onDeleteLesson} isEditable={isEditable} fullSchedule={fullSchedule}/>
+                            </TableCell>
+                          );
+                      } else {
+                          return (
+                              <TableCell key={cellId} className="p-0 border align-top">
+                                  <InteractiveEmptyCell
+                                      day={dayEnum}
+                                      timeSlot={time}
+                                      viewMode={viewMode}
+                                      selectedViewId={selectedViewId}
+                                      wizardData={wizardData}
+                                      schedule={fullSchedule}
+                                      onAddLesson={onAddLesson}
+                                  />
+                              </TableCell>
+                          );
+                      }
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

@@ -1,7 +1,7 @@
 // src/components/wizard/ScheduleEditor.tsx
 'use client';
 
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { DndContext, useSensor, useSensors, MouseSensor, TouchSensor, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { addLesson, removeLesson, saveSchedule, selectSchedule, selectScheduleStatus, updateLessonSlot, updateLessonSubject } from '@/lib/redux/features/schedule/scheduleSlice';
@@ -14,7 +14,7 @@ import { ArrowLeft, Loader2, Save, Users, User } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { calculateAvailableSlots, findConflictingConstraint, mergeConsecutiveLessons } from '@/lib/schedule-utils';
+import { findConflictingConstraint } from '@/lib/schedule-utils';
 import { toggleSelectedSubject, selectCurrentSubject } from '@/lib/redux/features/wizardSlice';
 
 type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
@@ -27,12 +27,10 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
 
     const schedule = useAppSelector(selectSchedule);
     const scheduleStatus = useAppSelector(selectScheduleStatus);
-    const selectedSubject = useAppSelector(selectCurrentSubject);
-
+    
     const [viewMode, setViewMode] = useState<'class' | 'teacher'>('class');
     const [selectedClassId, setSelectedClassId] = useState<string>(wizardData.classes[0]?.id.toString() || '');
     const [selectedTeacherId, setSelectedTeacherId] = useState<string>(wizardData.teachers[0]?.id || '');
-    const [draggedLesson, setDraggedLesson] = useState<Lesson | null>(null);
 
     const filteredSchedule = useMemo(() => {
         if (viewMode === 'class' && selectedClassId) return schedule.filter(l => l.classId === parseInt(selectedClassId));
@@ -40,63 +38,51 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
         return [];
     }, [schedule, viewMode, selectedClassId, selectedTeacherId]);
 
-    const availableSlots = useMemo(() => calculateAvailableSlots(selectedSubject, selectedClassId, schedule, wizardData, viewMode), [selectedSubject, selectedClassId, schedule, wizardData, viewMode]);
-
-    const handleClickOnSlot = useCallback((day: Day, time: string) => {
-        if (!selectedSubject) {
-            toast({ variant: 'destructive', title: 'Aucune matière sélectionnée', description: 'Veuillez d\'abord sélectionner une matière dans la barre latérale.' });
-            return;
-        }
-
-        if (!availableSlots.has(`${day}-${time}`)) {
-            toast({ variant: 'destructive', title: 'Créneau non valide', description: 'Ce créneau n\'est pas disponible. Vérifiez les contraintes et les disponibilités.' });
-            return;
-        }
+    const handlePlaceLesson = useCallback((subject: Subject, day: Day, time: string) => {
+        const { school, teachers, rooms, classes, teacherConstraints = [] } = wizardData;
 
         const [hour, minute] = time.split(':').map(Number);
-        const availableTeacher = wizardData.teachers.find(teacher => {
-            const canTeach = teacher.subjects.some(s => s.id === selectedSubject.id);
+
+        // Find an available teacher for this subject and slot
+        const availableTeacher = teachers.find(teacher => {
+            const canTeach = teacher.subjects.some(s => s.id === subject.id);
             if (!canTeach) return false;
+            
             const isBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === time);
             if (isBusy) return false;
-            const lessonEndTime = new Date(Date.UTC(0, 0, 1, hour, minute + wizardData.school.sessionDuration));
+            
+            const lessonEndTime = new Date(Date.UTC(0, 0, 1, hour, minute + school.sessionDuration));
             const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-            const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, wizardData.teacherConstraints || []);
+            const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, teacherConstraints);
+            
             return !constraint;
         });
 
         if (!availableTeacher) {
-            toast({ variant: "destructive", title: "Erreur interne", description: `Impossible de trouver un enseignant disponible.` });
+            toast({ variant: "destructive", title: "Aucun enseignant disponible", description: `Aucun enseignant pour "${subject.name}" n'est libre sur ce créneau.` });
             return;
         }
 
-        const occupiedRoomIds = schedule.filter(l => l.day === day && formatTimeSimple(l.startTime) === time).map(l => l.classroomId).filter(id => id !== null);
-        const availableRoom = wizardData.rooms.find(r => !occupiedRoomIds.includes(r.id));
+        const occupiedRoomIds = schedule.filter(l => l.day === day && formatTimeSimple(l.startTime) === time).map(l => l.classroomId).filter((id): id is number => id !== null);
+        const availableRoom = rooms.find(r => !occupiedRoomIds.includes(r.id));
         
         const newLesson: SchedulableLesson = {
-            name: `${selectedSubject.name} - ${wizardData.classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
+            name: `${subject.name} - ${classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
             day: day,
             startTime: new Date(Date.UTC(2000, 0, 1, hour, minute)).toISOString(),
-            endTime: new Date(Date.UTC(2000, 0, 1, hour, minute + wizardData.school.sessionDuration)).toISOString(),
-            subjectId: selectedSubject.id,
+            endTime: new Date(Date.UTC(2000, 0, 1, hour, minute + school.sessionDuration)).toISOString(),
+            subjectId: subject.id,
             classId: parseInt(selectedClassId, 10),
             teacherId: availableTeacher.id,
             classroomId: availableRoom ? availableRoom.id : null,
         };
 
         dispatch(addLesson(newLesson));
-        toast({ title: "Cours ajouté", description: `"${selectedSubject.name}" a été ajouté.` });
-        dispatch(toggleSelectedSubject(selectedSubject));
-    }, [selectedSubject, availableSlots, wizardData, schedule, dispatch, toast, selectedClassId]);
+        toast({ title: "Cours ajouté", description: `"${subject.name}" a été ajouté à l'emploi du temps.` });
 
-    const handleDragStart = (event: DragStartEvent) => {
-        if (event.active.id.toString().startsWith('lesson-')) {
-            setDraggedLesson(event.active.data.current?.lesson);
-        }
-    };
+    }, [wizardData, schedule, selectedClassId, dispatch, toast]);
 
     const handleDragEnd = (event: DragEndEvent) => {
-        setDraggedLesson(null);
         const { active, over } = event;
         if (!over) return;
         
@@ -111,8 +97,11 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
             dispatch(updateLessonSubject({ lessonId, newSubjectId: subjectId }));
             toast({ title: "Matière modifiée" });
         } else if (active.id.toString().startsWith('subject-') && over.id.toString().startsWith('empty-')) {
+            const subject = active.data.current?.subject as Subject;
             const [, day, time] = over.id.toString().split('-');
-            handleClickOnSlot(day as Day, time);
+            if(subject){
+                handlePlaceLesson(subject, day as Day, time);
+            }
         }
     };
 
@@ -120,7 +109,7 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
     const handleSaveChanges = () => dispatch(saveSchedule(schedule as SchedulableLesson[]));
 
     return (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
             <div className="flex flex-col md:flex-row gap-6">
                 <div className="w-full md:w-1/4 lg:w-1/5 space-y-4">
                     <ScheduleSidebar subjects={wizardData.subjects} />
@@ -157,9 +146,9 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
                         fullSchedule={schedule}
                         isEditable={true} 
                         onDeleteLesson={handleDeleteLesson}
-                        onEmptyCellClick={handleClickOnSlot}
-                        selectedSubject={selectedSubject}
-                        availableSlots={availableSlots}
+                        onAddLesson={handlePlaceLesson}
+                        viewMode={viewMode}
+                        selectedViewId={viewMode === 'class' ? selectedClassId : selectedTeacherId}
                     />
                 </div>
             </div>
