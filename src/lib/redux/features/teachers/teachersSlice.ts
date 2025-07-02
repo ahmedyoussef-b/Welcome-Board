@@ -88,19 +88,30 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
-        const teacher = state.items.find(t => t.id === teacherId);
-        if (teacher) {
-            if (!teacher.classes.some(c => c.id === classData.id)) {
-                teacher.classes.push(classData);
+        state.items = state.items.map(teacher => {
+            if (teacher.id === teacherId) {
+                if (teacher.classes.some(c => c.id === classData.id)) {
+                    return teacher;
+                }
+                return {
+                    ...teacher,
+                    classes: [...teacher.classes, classData]
+                };
             }
-        }
+            return teacher;
+        });
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
-        const teacher = state.items.find(t => t.id === teacherId);
-        if (teacher) {
-            teacher.classes = teacher.classes.filter(c => c.id !== classId);
-        }
+        state.items = state.items.map(teacher => {
+            if (teacher.id === teacherId) {
+                return {
+                    ...teacher,
+                    classes: teacher.classes.filter(c => c.id !== classId)
+                };
+            }
+            return teacher;
+        });
     },
   },
   extraReducers: (builder) => {
