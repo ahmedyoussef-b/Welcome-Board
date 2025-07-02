@@ -88,30 +88,39 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
-        state.items = state.items.map(teacher => {
-            if (teacher.id === teacherId) {
-                if (teacher.classes.some(c => c.id === classData.id)) {
-                    return teacher;
-                }
-                return {
-                    ...teacher,
-                    classes: [...teacher.classes, classData]
-                };
+        const teacherIndex = state.items.findIndex(t => t.id === teacherId);
+
+        if (teacherIndex !== -1) {
+            const teacherToUpdate = state.items[teacherIndex];
+            if (!teacherToUpdate.classes.some(c => c.id === classData.id)) {
+                const updatedClasses = [...teacherToUpdate.classes, classData];
+                const updatedTeacher = { ...teacherToUpdate, classes: updatedClasses };
+                
+                // Explicitly create a new array for the state
+                state.items = [
+                    ...state.items.slice(0, teacherIndex),
+                    updatedTeacher,
+                    ...state.items.slice(teacherIndex + 1),
+                ];
             }
-            return teacher;
-        });
+        }
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
-        state.items = state.items.map(teacher => {
-            if (teacher.id === teacherId) {
-                return {
-                    ...teacher,
-                    classes: teacher.classes.filter(c => c.id !== classId)
-                };
-            }
-            return teacher;
-        });
+        const teacherIndex = state.items.findIndex(t => t.id === teacherId);
+
+        if (teacherIndex !== -1) {
+            const teacherToUpdate = state.items[teacherIndex];
+            const updatedClasses = teacherToUpdate.classes.filter(c => c.id !== classId);
+            const updatedTeacher = { ...teacherToUpdate, classes: updatedClasses };
+
+            // Explicitly create a new array for the state
+            state.items = [
+                ...state.items.slice(0, teacherIndex),
+                updatedTeacher,
+                ...state.items.slice(teacherIndex + 1),
+            ];
+        }
     },
   },
   extraReducers: (builder) => {
