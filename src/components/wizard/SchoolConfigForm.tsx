@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Clock, Calendar, School } from 'lucide-react';
+import { Clock, Calendar, School, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { updateSchoolConfig, selectSchoolConfig, type SchoolData } from '@/lib/redux/features/schoolConfigSlice';
 
@@ -28,11 +28,20 @@ const SchoolConfigForm: React.FC = () => {
   };
 
   const handleDayToggle = (dayId: string, checked: boolean) => {
+    if (!data) return;
     const newDays = checked 
       ? [...data.schoolDays, dayId]
       : data.schoolDays.filter(day => day !== dayId);
     handleInputChange('schoolDays', newDays);
   };
+
+  if (!data) {
+    return (
+      <div className="flex items-center justify-center h-40">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
