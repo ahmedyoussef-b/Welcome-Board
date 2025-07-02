@@ -21,17 +21,40 @@ export async function POST(request: NextRequest) {
     }
 
     const assignments = validation.data;
+    const teacherIdsInPayload = assignments.map(a => a.teacherId);
 
     await prisma.$transaction(async (tx) => {
-      for (const { teacherId, classIds } of assignments) {
-        await tx.teacher.update({
-          where: { id: teacherId },
-          data: {
-            classes: {
-              set: classIds.map(id => ({ id })),
-            },
+      // 1. Clear all current supervisions for the teachers involved.
+      // This prevents potential conflicts and handles un-assignments.
+      await tx.class.updateMany({
+        where: {
+          supervisorId: {
+            in: teacherIdsInPayload,
           },
-        });
+        },
+        data: {
+          supervisorId: null,
+        },
+      });
+
+      // 2. Set the new supervisions.
+      // This loop is sequential. If a class is assigned to multiple teachers in the payload, the last one will win.
+      // The UI should ideally prevent this, but this ensures the operation doesn't fail.
+      for (const { teacherId, classIds } of assignments) {
+        if (classIds.length > 0) {
+          // You might want to add a check here to ensure a class isn't already assigned
+          // to another teacher within this same batch operation, but for now, last-write-wins.
+          await tx.class.updateMany({
+            where: {
+              id: {
+                in: classIds,
+              },
+            },
+            data: {
+              supervisorId: teacherId,
+            },
+          });
+        }
       }
     });
 
