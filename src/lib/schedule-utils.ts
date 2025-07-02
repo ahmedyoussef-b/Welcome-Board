@@ -32,46 +32,63 @@ export const findConflictingConstraint = (
 
 
 export const calculateAvailableSlots = (
-    selectedSubject: Subject | null,
+    selectedSubject: Subject,
     selectedClassId: string,
     schedule: Lesson[],
-    wizardData: WizardData,
-    viewMode: 'class' | 'teacher'
+    wizardData: WizardData
 ): Set<string> => {
     const slots = new Set<string>();
 
-    if (!selectedSubject || viewMode !== 'class' || !selectedClassId || !wizardData.school || !Array.isArray(wizardData.teachers)) {
+    if (!selectedClassId || !wizardData.school || !wizardData.teachers) {
         return slots;
     }
 
-    const { school, teachers, teacherConstraints = [] } = wizardData;
+    const { school, teachers, teacherConstraints = [], teacherAssignments = [], subjectRequirements = [] } = wizardData;
     const schoolDays = school.schoolDays.map(d => d.toUpperCase() as Day);
     const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
-    const potentialTeachers = teachers.filter(t => Array.isArray(t.subjects) && t.subjects.some(s => s.id === selectedSubject.id));
-
-    if (potentialTeachers.length === 0) return slots;
-
+    const classIdNum = parseInt(selectedClassId, 10);
+    if (isNaN(classIdNum)) return slots;
+    
+    // 1. Find the specific teacher assigned to this subject for this class
+    const assignment = teacherAssignments.find(a => a.subjectId === selectedSubject.id && a.classIds.includes(classIdNum));
+    if (!assignment) return slots; // No teacher assigned, so no slots are available
+    
+    const teacher = teachers.find(t => t.id === assignment.teacherId);
+    if (!teacher) return slots; // Teacher not found
+    
+    // 2. Iterate over all possible slots
     schoolDays.forEach(day => {
-        timeSlots.forEach(time => {
-            const classIdNum = parseInt(selectedClassId, 10);
-            if (isNaN(classIdNum)) return;
+        
+        const subjectReq = subjectRequirements.find(r => r.subjectId === selectedSubject.id);
+        const amSlots = ['08:00', '09:00', '10:00', '11:00'];
+        const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
+        let applicableTimeSlots = timeSlots;
+        if (subjectReq?.timePreference === 'AM') applicableTimeSlots = amSlots;
+        if (subjectReq?.timePreference === 'PM') applicableTimeSlots = pmSlots;
 
-            const isSlotOccupiedForClass = schedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === time);
-            if (isSlotOccupiedForClass) return;
+        applicableTimeSlots.forEach(time => {
+            const [hour, minute] = time.split(':').map(Number);
+            const lessonEndTime = new Date(Date.UTC(0, 0, 1, hour, minute + school.sessionDuration));
+            const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
 
-            const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
-                const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === time);
-                if (isTeacherBusy) return false;
 
-                const [hour, minute] = time.split(':').map(Number);
-                const lessonEndTime = new Date(0, 0, 0, hour, minute + school.sessionDuration);
-                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-                return !findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, teacherConstraints);
-            });
+            // 3. Check for conflicts
+            const isClassBusy = schedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === time);
+            const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === time);
+            const teacherIsConstrained = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, teacherConstraints);
+            
+            let isRoomUnavailable = false;
+            const requiredRoomId = subjectReq?.requiredRoomId;
+            if (requiredRoomId && requiredRoomId !== 'any') {
+                isRoomUnavailable = schedule.some(l => l.classroomId === requiredRoomId && l.day === day && formatTimeSimple(l.startTime) === time);
+            }
 
-            if (isAnyTeacherAvailable) slots.add(`${day}-${time}`);
+            if (!isClassBusy && !isTeacherBusy && !teacherIsConstrained && !isRoomUnavailable) {
+                slots.add(`${day}-${time}`);
+            }
         });
     });
+
     return slots;
 };
 

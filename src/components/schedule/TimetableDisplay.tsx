@@ -14,7 +14,7 @@ import { updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { mergeConsecutiveLessons, findConflictingConstraint } from '@/lib/schedule-utils';
+import { mergeConsecutiveLessons, calculateAvailableSlots } from '@/lib/schedule-utils';
 import { ScrollArea } from '../ui/scroll-area';
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
@@ -169,7 +169,9 @@ const InteractiveEmptyCell: React.FC<{
   isDropDisabled?: boolean;
   viewMode: 'class' | 'teacher';
   selectedViewId: string;
-}> = ({ day, timeSlot, wizardData, fullSchedule, onAddLesson, isDropDisabled = false, viewMode, selectedViewId }) => {
+  setHoveredSubjectId: (id: number | null) => void;
+  highlightedSlots: Set<string>;
+}> = ({ day, timeSlot, wizardData, fullSchedule, onAddLesson, isDropDisabled = false, viewMode, selectedViewId, setHoveredSubjectId, highlightedSlots }) => {
     const { setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
         data: { day, time: timeSlot },
@@ -188,69 +190,30 @@ const InteractiveEmptyCell: React.FC<{
     }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableSubjects = useMemo(() => {
-        if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.subjects || !Array.isArray(wizardData.subjects)) {
+        if (viewMode !== 'class' || !selectedViewId || !wizardData.subjects) {
             return [];
         }
-
-        const { school, teachers, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [], teacherAssignments = [] } = wizardData;
-
-        if (!school || !teachers || !subjects || !lessonRequirements || !teacherAssignments) {
-            return [];
-        }
-
         const classIdNum = parseInt(selectedViewId, 10);
-        if (isNaN(classIdNum)) return [];
-
+        
         const scheduledHoursBySubject = fullSchedule
             .filter(l => l.classId === classIdNum)
             .reduce((acc, l) => {
-                // Each lesson object represents one scheduled hour (or session).
-                acc[l.subjectId] = (acc[l.subjectId] || 0) + 1;
+                const durationMinutes = (new Date(l.endTime).getTime() - new Date(l.startTime).getTime()) / 60000;
+                const sessions = Math.round(durationMinutes / wizardData.school.sessionDuration);
+                acc[l.subjectId] = (acc[l.subjectId] || 0) + sessions;
                 return acc;
             }, {} as Record<number, number>);
 
-        return subjects.filter(subject => {
-            const requiredHours = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id)?.hours ?? subject.weeklyHours ?? 0;
+        return wizardData.subjects.filter(subject => {
+            const requiredHours = wizardData.lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id)?.hours ?? subject.weeklyHours ?? 0;
             const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
-            if (requiredHours > 0 && scheduledHours >= requiredHours) {
-                return false;
-            }
-
-            const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
-            if (subjectReq) {
-                const amSlots = ['08:00', '09:00', '10:00', '11:00'];
-                const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
-                if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) return false;
-                if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) return false;
-            }
-
-            const assignment = teacherAssignments.find(a => a.subjectId === subject.id && a.classIds.includes(classIdNum));
-            if (!assignment) return false;
-            
-            const teacher = teachers.find(t => t.id === assignment.teacherId);
-            if (!teacher) return false; 
-            
-            if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
-            
-            const [hour, minute] = timeSlot.split(':').map(Number);
-            const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
-            const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-            if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
-                return false;
-            }
-            
-            if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any' && wizardData.rooms && wizardData.rooms.length > 0) {
-                const isRoomOccupied = fullSchedule.some(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId === subjectReq.requiredRoomId);
-                if (isRoomOccupied) return false;
-            }
-
-            return true;
+            return scheduledHours < requiredHours;
         });
-    }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
+    }, [fullSchedule, wizardData, selectedViewId, viewMode]);
 
 
     return (
-        <div ref={setNodeRef} className="h-24 w-full rounded-md transition-colors relative group p-1">
+        <div ref={setNodeRef} className={cn("h-24 w-full rounded-md transition-colors relative group p-1", highlightedSlots.has(`${day}-${timeSlot}`) && "bg-green-500/20 animate-subtle-pulse")}>
             <div className="absolute bottom-1 right-1 flex gap-1 opacity-20 group-hover:opacity-100 transition-opacity">
                  {viewMode === 'class' && (
                      <Popover>
@@ -260,12 +223,19 @@ const InteractiveEmptyCell: React.FC<{
                         <PopoverContent className="w-64">
                             <h4 className="font-medium text-sm mb-2">Matières possibles</h4>
                             <ScrollArea className="max-h-48">
-                                <div className="space-y-1">
+                                <div className="space-y-1" onMouseLeave={() => setHoveredSubjectId(null)}>
                                     {availableSubjects.length > 0 ? availableSubjects.map(subject => (
-                                        <Button key={subject.id} variant="outline" size="sm" className="w-full justify-start" onClick={() => onAddLesson(subject, day, timeSlot)}>
+                                        <Button 
+                                            key={subject.id} 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="w-full justify-start" 
+                                            onClick={() => onAddLesson(subject, day, timeSlot)}
+                                            onMouseEnter={() => setHoveredSubjectId(subject.id)}
+                                        >
                                             {subject.name}
                                         </Button>
-                                    )) : <p className="text-xs text-muted-foreground p-2">Aucune matière disponible pour ce créneau.</p>}
+                                    )) : <p className="text-xs text-muted-foreground p-2">Aucune matière avec des heures restantes.</p>}
                                 </div>
                             </ScrollArea>
                         </PopoverContent>
@@ -316,6 +286,21 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
   const dayMapping: { [key: string]: Day } = { Lundi: 'MONDAY', Mardi: 'TUESDAY', Mercredi: 'WEDNESDAY', Jeudi: 'THURSDAY', Vendredi: 'FRIDAY', Samedi: 'SATURDAY' };
+  
+  const [hoveredSubjectId, setHoveredSubjectId] = useState<number | null>(null);
+
+  const highlightedSlots = useMemo(() => {
+    if (!hoveredSubjectId || viewMode !== 'class') return new Set<string>();
+    const subject = wizardData.subjects.find(s => s.id === hoveredSubjectId);
+    if (!subject) return new Set<string>();
+    
+    return calculateAvailableSlots(
+        subject,
+        selectedViewId,
+        fullSchedule,
+        wizardData
+    );
+  }, [hoveredSubjectId, wizardData, fullSchedule, selectedViewId, viewMode]);
 
   const { scheduleGrid, spannedSlots } = useMemo(() => {
     if (!Array.isArray(scheduleData) || !wizardData || !wizardData.school) return { scheduleGrid: {}, spannedSlots: new Set() };
@@ -415,6 +400,8 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                                       fullSchedule={fullSchedule}
                                       onAddLesson={onAddLesson}
                                       isDropDisabled={!isEditable}
+                                      setHoveredSubjectId={setHoveredSubjectId}
+                                      highlightedSlots={highlightedSlots}
                                   />
                               </TableCell>
                           );
