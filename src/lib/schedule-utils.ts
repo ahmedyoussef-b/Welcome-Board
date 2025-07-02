@@ -109,29 +109,41 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
   
             for (const day of shuffledDays) {
               for (const time of shuffledTimes) {
-                // Find an available teacher and check if the class is free
                 const availableTeacher = potentialTeachers.find(t => !occupancy[`teacher-${t.id}-${day}-${time}`]);
                 const isClassAvailable = !occupancy[`class-${classItem.id}-${day}-${time}`];
   
                 if (availableTeacher && isClassAvailable) {
-                  // Determine the required room type based on subject
+                  const [hour, minute] = time.split(':').map(Number);
+                  const lessonStartTimeStr = time;
+                  const lessonEndTimeDate = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
+                  const lessonEndTimeStr = `${String(lessonEndTimeDate.getUTCHours()).padStart(2, '0')}:${String(lessonEndTimeDate.getUTCMinutes()).padStart(2, '0')}`;
+                  
+                  const constraint = findConflictingConstraint(
+                      availableTeacher.id,
+                      day,
+                      lessonStartTimeStr,
+                      lessonEndTimeStr,
+                      wizardData.teacherConstraints || []
+                  );
+
+                  if (constraint) {
+                    continue; // Teacher is unavailable, skip this slot.
+                  }
+
                   const subjectNameLower = subject.name.toLowerCase();
                   const isLabSubject = labSubjectKeywords.some(keyword => subjectNameLower.includes(keyword));
                   
                   let potentialRooms: typeof wizardData.rooms = [];
                   if (isLabSubject) {
                     const subjectKeyword = labSubjectKeywords.find(k => subjectNameLower.includes(k));
-                    potentialRooms = wizardData.rooms.filter(r => r.name.toLowerCase().includes('labo') && r.name.toLowerCase().includes(subjectKeyword!));
+                    potentialRooms = wizardData.rooms.filter(r => r.name.toLowerCase().includes('labo') && (!subjectKeyword || r.name.toLowerCase().includes(subjectKeyword)));
                   } else {
                     potentialRooms = wizardData.rooms.filter(r => !r.name.toLowerCase().includes('labo'));
                   }
   
                   const availableRoom = potentialRooms.find(r => !occupancy[`room-${r.id}-${day}-${time}`]);
                   
-                  // A room is only strictly necessary if rooms are configured.
                   if (availableRoom || wizardData.rooms.length === 0) {
-                    const [hour, minute] = time.split(':').map(Number);
-  
                     newSchedule.push({
                       name: `${subject.name} - ${classItem.name}`,
                       day: day,
@@ -143,7 +155,6 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
                       classroomId: availableRoom ? availableRoom.id : null,
                     });
   
-                    // Update all occupancies
                     occupancy[`teacher-${availableTeacher.id}-${day}-${time}`] = true;
                     occupancy[`class-${classItem.id}-${day}-${time}`] = true;
                     if (availableRoom) {

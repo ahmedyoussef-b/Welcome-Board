@@ -43,6 +43,7 @@ const steps = [
 export default function ShuddlePageClient() {
     const [mode, setMode] = useState<'wizard' | 'edit'>('wizard');
     const [currentStep, setCurrentStep] = useState(0);
+    const [initialModeSet, setInitialModeSet] = useState(false);
 
     const classes = useAppSelector(selectAllClasses);
     const subjects = useAppSelector(selectAllMatieres);
@@ -64,11 +65,12 @@ export default function ShuddlePageClient() {
     });
 
     useEffect(() => {
-      // When the schedule data has been loaded from the server, decide the mode.
-      if (scheduleStatus === 'succeeded') {
+      // Only set the mode once after the initial data load
+      if (scheduleStatus === 'succeeded' && !initialModeSet) {
         setMode(schedule.length > 0 ? 'edit' : 'wizard');
+        setInitialModeSet(true); // Prevent this from running again
       }
-    }, [schedule, scheduleStatus]);
+    }, [schedule, scheduleStatus, initialModeSet]);
   
     const wizardData: WizardData = useMemo(() => ({
       school: schoolConfig,
