@@ -13,73 +13,61 @@ const batchAssignSchema = z.array(assignmentSchema);
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[API/batch-assign] Received POST request.");
     const body = await request.json();
     const validation = batchAssignSchema.safeParse(body);
 
     if (!validation.success) {
-      console.error("[API/batch-assign] Validation Error:", validation.error.flatten());
       return NextResponse.json({ message: "Données d'entrée invalides", errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const assignments = validation.data;
-    console.log(`[API/batch-assign] Validated payload with ${assignments.length} assignment groups.`);
+    const newAssignments = validation.data;
+    const teacherIds = newAssignments.map(a => a.teacherId);
     
-    // --- Pre-transaction validation ---
-    const teacherIds = assignments.map(a => a.teacherId);
-    const classIds = Array.from(new Set(assignments.flatMap(a => a.classIds)));
-
-    if (teacherIds.length > 0) {
-        const existingTeachersCount = await prisma.teacher.count({ where: { id: { in: teacherIds } } });
-        if (existingTeachersCount !== teacherIds.length) {
-            console.error("[API/batch-assign] Validation Error: One or more teacher IDs are invalid.");
-            return NextResponse.json({ message: "Un ou plusieurs IDs d'enseignants sont invalides." }, { status: 400 });
-        }
+    if (teacherIds.length === 0) {
+      return NextResponse.json({ message: "Aucune assignation à traiter." }, { status: 200 });
     }
-    if (classIds.length > 0) {
-        const existingClassesCount = await prisma.class.count({ where: { id: { in: classIds } } });
-        if (existingClassesCount !== classIds.length) {
-            console.error("[API/batch-assign] Validation Error: One or more class IDs are invalid.");
-            return NextResponse.json({ message: "Un ou plusieurs IDs de classes sont invalides." }, { status: 400 });
-        }
-    }
-    console.log("[API/batch-assign] Pre-transaction validation passed.");
-    // --- End Validation ---
 
-    await prisma.$transaction(async (tx) => {
-      console.log("[API/batch-assign] Starting transaction.");
-      
-      // Step 1: Clear all supervisor assignments for the teachers involved in this batch update.
-      // This prevents unique constraint violations if a class is moved from one teacher to another within the same batch.
-      console.log(`[API/batch-assign] Step 1: Clearing current assignments for ${teacherIds.length} teachers.`);
-      await tx.class.updateMany({
-        where: {
-          supervisorId: {
-            in: teacherIds,
-          },
-        },
-        data: {
-          supervisorId: null,
-        },
-      });
-      console.log("[API/batch-assign] Step 1: Assignments cleared.");
-
-      // Step 2: Apply the new assignments.
-      console.log("[API/batch-assign] Step 2: Applying new assignments.");
-      for (const assignment of assignments) {
-        const { teacherId, classIds: newClassIds } = assignment;
-
-        if (newClassIds.length > 0) {
-          console.log(`[API/batch-assign] Assigning ${newClassIds.length} classes to teacher ${teacherId}.`);
-          await tx.class.updateMany({
-            where: { id: { in: newClassIds } },
-            data: { supervisorId: teacherId },
-          });
-        }
-      }
-      console.log("[API/batch-assign] Step 2: New assignments applied.");
-      console.log("[API/batch-assign] Transaction successful.");
+    // --- State Calculation Logic ---
+    
+    // 1. Fetch the current state of all classes that are currently supervised by the teachers involved.
+    const currentSupervisedClasses = await prisma.class.findMany({
+        where: { supervisorId: { in: teacherIds } },
+        select: { id: true, supervisorId: true }
     });
+    const currentAssignmentsMap = new Map(currentSupervisedClasses.map(c => [c.id, c.supervisorId]));
+
+    // 2. Create a map of the NEW desired state from the client payload.
+    const newAssignmentsMap = new Map<number, string>();
+    newAssignments.forEach(a => {
+        a.classIds.forEach(cid => {
+            newAssignmentsMap.set(cid, a.teacherId);
+        });
+    });
+
+    // 3. Determine the minimal list of updates required.
+    const updatesToPerform: { classId: number, newSupervisorId: string | null }[] = [];
+    const allAffectedClassIds = new Set([...currentAssignmentsMap.keys(), ...newAssignmentsMap.keys()]);
+
+    allAffectedClassIds.forEach(classId => {
+        const currentSupervisor = currentAssignmentsMap.get(classId) ?? null;
+        const newSupervisor = newAssignmentsMap.get(classId) ?? null;
+
+        if (currentSupervisor !== newSupervisor) {
+            updatesToPerform.push({ classId: classId, newSupervisorId: newSupervisor });
+        }
+    });
+
+    // 4. Execute the precise updates in a single transaction if there are changes.
+    if (updatesToPerform.length > 0) {
+        await prisma.$transaction(
+            updatesToPerform.map(update => 
+                prisma.class.update({
+                    where: { id: update.classId },
+                    data: { supervisorId: update.newSupervisorId }
+                })
+            )
+        );
+    }
 
     return NextResponse.json({ message: "Assignations des professeurs mises à jour avec succès." }, { status: 200 });
 
