@@ -79,7 +79,7 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects
   const allClasses = useAppSelector(selectAllClasses);
   const { toast } = useToast();
 
-  const subjectsWithTeachers = useMemo(() => {
+  const subjectsWithTeachers = (() => {
     const map = new Map<number, { subject: Subject; teachers: TeacherWithDetails[] }>();
     teachers.forEach(teacher => {
       teacher.subjects.forEach(subject => {
@@ -90,21 +90,16 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects
       });
     });
     return Array.from(map.values());
-  }, [teachers]);
+  })();
 
   const handleDragEnd = (event: DragEndEvent) => {
-    console.log('[TeachersForm] Drag End Event:', event);
     const { active, over } = event;
     if (!over) {
-        console.log('[TeachersForm] Drag ended, but not over a droppable area.');
         return;
     };
 
     const classData = active.data.current?.classData as ClassWithGrade | undefined;
     const teacherId = over.data.current?.teacherId as string | undefined;
-    
-    console.log('[TeachersForm] Dragged Class:', classData?.name, ' (ID:', classData?.id, ')');
-    console.log('[TeachersForm] Dropped on Teacher ID:', teacherId);
 
     if (classData && teacherId) {
         const teacher = teachers.find(t => t.id === teacherId);
@@ -116,13 +111,11 @@ const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers, allSubjects
             });
             return;
         }
-      console.log('[TeachersForm] Dispatching assignClassToTeacher with:', { teacherId, classData });
       dispatch(assignClassToTeacher({ teacherId, classData }));
     }
   };
   
   const handleUnassign = (teacherId: string, classId: number) => {
-      console.log('[TeachersForm] Dispatching unassignClassFromTeacher with:', { teacherId, classId });
       dispatch(unassignClassFromTeacher({ teacherId, classId }));
   };
 
