@@ -45,11 +45,16 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
         }
 
         const [hour, minute] = time.split(':').map(Number);
+        const classIdNum = parseInt(selectedClassId, 10);
+        
+        // Find teachers assigned to this specific class
+        const teachersForThisClass = teachers.filter(t => t.classes.some(c => c.id === classIdNum));
 
-        const availableTeacher = teachers.find(teacher => {
+        // Find a teacher from this group who is competent and available
+        const availableTeacher = teachersForThisClass.find(teacher => {
             const canTeach = teacher.subjects.some(s => s.id === subject.id);
             if (!canTeach) return false;
-            
+
             const isTeacherBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === time);
             if (isTeacherBusy) return false;
             
@@ -60,8 +65,9 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
             return !constraint;
         });
 
+
         if (!availableTeacher) {
-            toast({ variant: "destructive", title: "Aucun enseignant disponible", description: `Aucun enseignant pour "${subject.name}" n'est libre sur ce créneau.` });
+            toast({ variant: "destructive", title: "Aucun enseignant assigné disponible", description: `Aucun enseignant assigné à cette classe pour "${subject.name}" n'est libre sur ce créneau.` });
             return;
         }
         
@@ -79,12 +85,12 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: { wizardD
         }
 
         const newLesson: SchedulableLesson = {
-            name: `${subject.name} - ${classes.find(c => c.id === parseInt(selectedClassId, 10))?.name}`,
+            name: `${subject.name} - ${classes.find(c => c.id === classIdNum)?.name}`,
             day: day,
             startTime: new Date(Date.UTC(2000, 0, 1, hour, minute)).toISOString(),
             endTime: new Date(Date.UTC(2000, 0, 1, hour, minute + school.sessionDuration)).toISOString(),
             subjectId: subject.id,
-            classId: parseInt(selectedClassId, 10),
+            classId: classIdNum,
             teacherId: availableTeacher.id,
             classroomId: availableRoom ? availableRoom.id : null,
         };

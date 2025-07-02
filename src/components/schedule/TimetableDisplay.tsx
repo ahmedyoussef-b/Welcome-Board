@@ -34,15 +34,14 @@ const RoomSelectorPopover: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
 
     const availableRooms = useMemo(() => {
-        const rooms = wizardData?.rooms ?? [];
-        if (!Array.isArray(fullSchedule) || !Array.isArray(rooms)) return [];
+        if (!wizardData?.rooms || !Array.isArray(fullSchedule)) return [];
 
         const occupiedRoomIds = new Set(
             fullSchedule
                 .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
                 .map(l => l.classroomId!)
         );
-        return rooms.filter(room => !occupiedRoomIds.has(room.id));
+        return wizardData.rooms.filter(room => !occupiedRoomIds.has(room.id));
     }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const handleRoomChange = (newRoomId: number | null) => {
@@ -132,7 +131,9 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
 
     const subjectColors = ['bg-primary/10 border-primary/20', 'bg-secondary/10 border-secondary/20', 'bg-accent/10 border-accent/20', 'bg-chart-1/20 border-chart-1/30', 'bg-chart-2/20 border-chart-2/30', 'bg-chart-3/20 border-chart-3/30', 'bg-chart-4/20 border-chart-4/30', 'bg-chart-5/20 border-chart-5/30'];
     const getSubjectColor = (subjectId: number) => {
-      const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
+      const subjects = wizardData?.subjects ?? [];
+      if (!Array.isArray(subjects)) return 'bg-muted';
+      const index = subjects.findIndex((s: Subject) => s.id === subjectId);
       return subjectColors[index % subjectColors.length] || 'bg-muted';
     };
     
@@ -158,6 +159,7 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     );
 };
 
+
 const InteractiveEmptyCell: React.FC<{
   day: Day;
   timeSlot: string;
@@ -175,89 +177,84 @@ const InteractiveEmptyCell: React.FC<{
     });
     
     const availableRooms = useMemo(() => {
-        const rooms = wizardData?.rooms ?? [];
-        if (!Array.isArray(fullSchedule) || !Array.isArray(rooms)) return [];
+        if (!wizardData?.rooms || !Array.isArray(fullSchedule)) return [];
         
         const occupiedRoomIds = new Set(
             fullSchedule
                 .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
                 .map(l => l.classroomId!)
         );
-        return rooms.filter(room => !occupiedRoomIds.has(room.id));
+        return wizardData.rooms.filter(room => !occupiedRoomIds.has(room.id));
     }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableSubjects = useMemo(() => {
-        if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.school) return [];
-        const { school, teachers, rooms, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [] } = wizardData;
-        if (!Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(rooms) || !Array.isArray(lessonRequirements) || !Array.isArray(fullSchedule)) return [];
+      if (viewMode !== 'class' || !selectedViewId || !wizardData || !wizardData.school) return [];
+      const { school, teachers, rooms, subjects, lessonRequirements, teacherConstraints = [], subjectRequirements = [] } = wizardData;
+      if (!Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(rooms) || !Array.isArray(lessonRequirements) || !Array.isArray(fullSchedule)) return [];
 
-        const classIdNum = parseInt(selectedViewId, 10);
-        if (isNaN(classIdNum)) return [];
+      const classIdNum = parseInt(selectedViewId, 10);
+      if (isNaN(classIdNum)) return [];
 
-        const scheduledHoursBySubject = fullSchedule
-            .filter(l => l.classId === classIdNum)
-            .reduce((acc, l) => {
-                acc[l.subjectId] = (acc[l.subjectId] || 0) + 1; // Assuming 1 lesson = 1 hour from sessionDuration
-                return acc;
-            }, {} as Record<number, number>);
+      const scheduledHoursBySubject = fullSchedule
+          .filter(l => l.classId === classIdNum)
+          .reduce((acc, l) => {
+              acc[l.subjectId] = (acc[l.subjectId] || 0) + 1; // Assuming 1 lesson = 1 hour
+              return acc;
+          }, {} as Record<number, number>);
 
-        return subjects.filter(subject => {
-            // 1. Check weekly hours constraint
-            const requirement = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id);
-            const requiredHours = requirement ? requirement.hours : (subject.weeklyHours || 0);
-            const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
-            if (requiredHours > 0 && scheduledHours >= requiredHours) {
-                return false;
-            }
+      // Filter teachers assigned to this specific class
+      const teachersForThisClass = teachers.filter(t => t.classes.some(c => c.id === classIdNum));
 
-            // 2. Check time preference constraint
-            const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
-            if (subjectReq) {
-                const amSlots = ['08:00', '09:00', '10:00', '11:00'];
-                const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
-                if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) {
-                    return false;
-                }
-                if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) {
-                    return false;
-                }
-            }
+      return subjects.filter(subject => {
+          // 1. Check weekly hours constraint
+          const requirement = lessonRequirements.find(r => r.classId === classIdNum && r.subjectId === subject.id);
+          const requiredHours = requirement ? requirement.hours : (subject.weeklyHours || 0);
+          const scheduledHours = scheduledHoursBySubject[subject.id] || 0;
+          if (requiredHours > 0 && scheduledHours >= requiredHours) {
+              return false;
+          }
 
-            // 3. Check for at least one available teacher and room combination
-            const canBePlaced = teachers.some(teacher => {
-                // Can teacher teach this subject?
-                if (!teacher.subjects.some(s => s.id === subject.id)) return false;
+          // 2. Check time preference constraint
+          const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
+          if (subjectReq) {
+              const amSlots = ['08:00', '09:00', '10:00', '11:00'];
+              const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
+              if (subjectReq.timePreference === 'AM' && !amSlots.includes(timeSlot)) return false;
+              if (subjectReq.timePreference === 'PM' && !pmSlots.includes(timeSlot)) return false;
+          }
 
-                // Is teacher busy with another lesson at this time?
-                if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
-                
-                // Does teacher have a personal time constraint?
-                const [hour, minute] = timeSlot.split(':').map(Number);
-                const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
-                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-                if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
-                    return false;
-                }
+          // 3. Check for at least one available *assigned* teacher and room combination
+          const canBePlaced = teachersForThisClass.some(teacher => {
+              // Can this assigned teacher teach the subject?
+              if (!teacher.subjects.some(s => s.id === subject.id)) return false;
+              
+              // Is this teacher busy with another lesson at this time?
+              if (fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
+              
+              // Does teacher have a personal time constraint?
+              const [hour, minute] = timeSlot.split(':').map(Number);
+              const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + (school.sessionDuration || 60)));
+              const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+              if (findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints)) {
+                  return false;
+              }
+              
+              // Is a required room available?
+              if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any') {
+                  const isRoomOccupied = fullSchedule.some(
+                      l => l.day === day &&
+                           formatTimeSimple(l.startTime) === timeSlot &&
+                           l.classroomId === subjectReq.requiredRoomId
+                  );
+                  if (isRoomOccupied) return false;
+              }
+              
+              return true;
+          });
 
-                // Is a required room available?
-                if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any') {
-                    const isRoomOccupied = fullSchedule.some(
-                        l => l.day === day &&
-                             formatTimeSimple(l.startTime) === timeSlot &&
-                             l.classroomId === subjectReq.requiredRoomId
-                    );
-                    if (isRoomOccupied) {
-                        return false; // The specific required room is taken
-                    }
-                }
-                
-                // If we passed all checks for this teacher, it means this subject can be placed
-                return true;
-            });
-
-            return canBePlaced;
-        });
-    }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
+          return canBePlaced;
+      });
+  }, [day, timeSlot, fullSchedule, wizardData, selectedViewId, viewMode]);
 
 
     return (
@@ -370,7 +367,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
             <div className="flex justify-between items-center">
             <div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">
-                Emplois du Temps - {wizardData.school?.name ?? 'École'}
+                Emplois du Temps - {wizardData?.school?.name ?? 'École'}
                 </h2>
                 <p className="text-muted-foreground">
                     Consultez l'emploi du temps généré.
@@ -424,7 +421,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                                       selectedViewId={selectedViewId}
                                       wizardData={wizardData}
                                       fullSchedule={fullSchedule}
-                                      onAddLesson={onAddLesson!}
+                                      onAddLesson={onAddLesson}
                                       isDropDisabled={!isEditable}
                                   />
                               </TableCell>
