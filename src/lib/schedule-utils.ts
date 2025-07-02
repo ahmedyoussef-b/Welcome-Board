@@ -166,7 +166,10 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
     if (!school.schoolDays || school.schoolDays.length === 0) return [];
 
     const schoolDays = school.schoolDays.map(d => d.toUpperCase() as Day);
-    const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+    const allTimeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+    const amSlots = ['08:00', '09:00', '10:00', '11:00'];
+    const pmSlots = ['12:00', '14:00', '15:00', '16:00', '17:00'];
+
     const occupancy: { [key: string]: boolean } = {};
 
     classes.forEach(classItem => {
@@ -175,23 +178,21 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
             const hoursToSchedule = requirement ? requirement.hours : (subject.weeklyHours || 0);
             if (hoursToSchedule === 0) return;
 
-            // Teachers are filtered based on subject competency only.
             const potentialTeachers = teachers.filter(t => t.subjects.some(s => s.id === subject.id));
             if (potentialTeachers.length === 0) return;
 
             const subjectReq = subjectRequirements.find(r => r.subjectId === subject.id);
+            
+            let applicableTimeSlots = allTimeSlots;
+            if (subjectReq?.timePreference === 'AM') {
+                applicableTimeSlots = amSlots;
+            } else if (subjectReq?.timePreference === 'PM') {
+                applicableTimeSlots = pmSlots;
+            }
 
             for (let i = 0; i < hoursToSchedule; i++) {
                 let placed = false;
                 const shuffledDays = [...schoolDays].sort(() => Math.random() - 0.5);
-
-                // Apply time preference from subjectRequirements
-                let applicableTimeSlots = [...timeSlots];
-                if (subjectReq?.timePreference === 'AM') {
-                    applicableTimeSlots = timeSlots.filter(t => parseInt(t.split(':')[0]) < 12);
-                } else if (subjectReq?.timePreference === 'PM') {
-                    applicableTimeSlots = timeSlots.filter(t => parseInt(t.split(':')[0]) >= 12);
-                }
                 const shuffledTimes = [...applicableTimeSlots].sort(() => Math.random() - 0.5);
 
                 for (const day of shuffledDays) {
@@ -207,20 +208,16 @@ export const generateSchedule = (wizardData: WizardData): SchedulableLesson[] =>
                         const constraint = findConflictingConstraint(availableTeacher.id, day, time, lessonEndTimeStr, teacherConstraints);
                         if (constraint) continue;
 
-                        // Apply room requirements
                         let potentialRooms = [...rooms];
                         if (subjectReq?.requiredRoomId && subjectReq.requiredRoomId !== 'any') {
                             potentialRooms = rooms.filter(r => r.id === subjectReq.requiredRoomId);
                         }
                         
-                        // Find a room that meets capacity and availability
                         const availableRoom = potentialRooms.find(r =>
                             !occupancy[`room-${r.id}-${day}-${time}`] && r.capacity >= classItem.capacity
                         );
 
-                        // If a specific room type is needed but none are free/big enough, skip.
                         if (potentialRooms.length > 0 && !availableRoom) continue;
-                        // If a specific room type is required but doesn't exist, skip.
                         if (rooms.length > 0 && subjectReq?.requiredRoomId && potentialRooms.length === 0) continue;
 
                         newSchedule.push({
