@@ -91,17 +91,18 @@ export const teachersSlice = createSlice({
         const teacherIndex = state.items.findIndex(t => t.id === teacherId);
 
         if (teacherIndex !== -1) {
-            const teacherToUpdate = state.items[teacherIndex];
-            if (!teacherToUpdate.classes.some(c => c.id === classData.id)) {
-                const updatedClasses = [...teacherToUpdate.classes, classData];
-                const updatedTeacher = { ...teacherToUpdate, classes: updatedClasses };
+            const teacher = state.items[teacherIndex];
+            if (!teacher.classes.some(c => c.id === classData.id)) {
+                // Create a new teacher object with a new, sorted array for classes
+                const updatedTeacher = {
+                    ...teacher,
+                    classes: [...teacher.classes, classData].sort((a,b) => a.name.localeCompare(b.name)),
+                };
                 
-                // Explicitly create a new array for the state
-                state.items = [
-                    ...state.items.slice(0, teacherIndex),
-                    updatedTeacher,
-                    ...state.items.slice(teacherIndex + 1),
-                ];
+                // Create a new items array, replacing the old teacher object with the updated one
+                state.items = state.items.map(t => 
+                    t.id === teacherId ? updatedTeacher : t
+                );
             }
         }
     },
@@ -110,16 +111,17 @@ export const teachersSlice = createSlice({
         const teacherIndex = state.items.findIndex(t => t.id === teacherId);
 
         if (teacherIndex !== -1) {
-            const teacherToUpdate = state.items[teacherIndex];
-            const updatedClasses = teacherToUpdate.classes.filter(c => c.id !== classId);
-            const updatedTeacher = { ...teacherToUpdate, classes: updatedClasses };
+            const teacher = state.items[teacherIndex];
+            // Create a new teacher object with a new, filtered array for classes
+            const updatedTeacher = {
+                ...teacher,
+                classes: teacher.classes.filter(c => c.id !== classId),
+            };
 
-            // Explicitly create a new array for the state
-            state.items = [
-                ...state.items.slice(0, teacherIndex),
-                updatedTeacher,
-                ...state.items.slice(teacherIndex + 1),
-            ];
+            // Create a new items array, replacing the old teacher object with the updated one
+            state.items = state.items.map(t => 
+                t.id === teacherId ? updatedTeacher : t
+            );
         }
     },
   },
