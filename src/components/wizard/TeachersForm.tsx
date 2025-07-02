@@ -7,23 +7,24 @@ import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trash2, UserPlus, Copy } from 'lucide-react';
 import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { assignClassToTeacher, unassignClassFromTeacher, selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
+import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
+import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// --- Internal Components for the new double-click interaction ---
+// --- Internal Components for the new interaction ---
 
-function SelectableClass({ classData, isSelected, onSelect }: { classData: ClassWithGrade; isSelected: boolean; onSelect: (classData: ClassWithGrade) => void; }) {
+function SelectableClass({ classData, isSelected, onSelect }: { classData: ClassWithGrade; isSelected: boolean; onSelect: (classData: ClassWithGrade, event: React.MouseEvent) => void; }) {
   return (
     <div
-      onDoubleClick={() => onSelect(classData)}
+      onClick={(e) => onSelect(classData, e)}
       className={cn(
         "p-2 border rounded-md bg-background flex items-center justify-center gap-2 cursor-pointer transition-all",
         isSelected ? "ring-2 ring-primary bg-primary/10" : "hover:bg-muted"
       )}
-      title={`Double-cliquez pour ${isSelected ? 'désélectionner' : 'sélectionner'} ${classData.name}`}
+      title={`Cliquez pour sélectionner. Maintenez Ctrl/Cmd pour une sélection multiple.`}
     >
       <span className="text-sm font-medium">{classData.name}</span>
     </div>
@@ -35,7 +36,7 @@ function TeacherCard({ teacher, onUnassign, onAssign }: { teacher: TeacherWithDe
     <div
       onDoubleClick={() => onAssign(teacher.id)}
       className="p-4 rounded-lg border bg-muted/50 cursor-pointer hover:bg-primary/10 transition-colors"
-      title="Double-cliquez pour assigner la classe sélectionnée"
+      title="Double-cliquez pour assigner la ou les classe(s) sélectionnée(s)"
     >
       <h4 className="font-semibold">{teacher.name} {teacher.surname}</h4>
       <div className="flex flex-wrap gap-2 mt-2 min-h-[36px]">
@@ -44,7 +45,7 @@ function TeacherCard({ teacher, onUnassign, onAssign }: { teacher: TeacherWithDe
             {cls.name}
             <button
               onClick={(e) => {
-                e.stopPropagation(); // Prevent the double-click event on the parent div
+                e.stopPropagation();
                 onUnassign(teacher.id, cls.id);
               }}
               className="ml-1 rounded-full hover:bg-destructive/20 p-0.5"
@@ -69,38 +70,48 @@ const TeachersForm: React.FC = () => {
   const allClasses = useAppSelector(selectAllClasses);
   const allSubjects = useAppSelector(selectAllMatieres);
 
-  const [selectedClass, setSelectedClass] = useState<ClassWithGrade | null>(null);
+  const [selectedClasses, setSelectedClasses] = useState<ClassWithGrade[]>([]);
 
-  const handleSelectClass = (classData: ClassWithGrade) => {
-    if (selectedClass?.id === classData.id) {
-        setSelectedClass(null);
-    } else {
-        setSelectedClass(classData);
+  const handleSelectClass = (classData: ClassWithGrade, event: React.MouseEvent) => {
+    const isAlreadySelected = selectedClasses.some(c => c.id === classData.id);
+
+    if (event.ctrlKey || event.metaKey) { // For Ctrl/Cmd click
+      if (isAlreadySelected) {
+        setSelectedClasses(prev => prev.filter(c => c.id !== classData.id));
+      } else {
+        setSelectedClasses(prev => [...prev, classData]);
+      }
+    } else { // For single click
+      if (isAlreadySelected && selectedClasses.length === 1) {
+        setSelectedClasses([]);
+      } else {
+        setSelectedClasses([classData]);
+      }
     }
   };
-
+  
   const handleAssignClass = (teacherId: string) => {
-    if (!selectedClass) {
+    if (selectedClasses.length === 0) {
         toast({
             variant: 'destructive',
             title: 'Aucune classe sélectionnée',
-            description: 'Veuillez double-cliquer sur une classe pour la sélectionner avant de l\'assigner.',
+            description: 'Veuillez cliquer sur une ou plusieurs classes pour les sélectionner avant de les assigner.',
         });
         return;
     }
 
     const teacher = allTeachers.find(t => t.id === teacherId);
-    if (teacher && teacher.classes.some(c => c.id === selectedClass.id)) {
-        toast({
-            variant: 'destructive',
-            title: 'Assignation impossible',
-            description: `La classe ${selectedClass.name} est déjà assignée à ${teacher.name} ${teacher.surname}.`,
-        });
-        return;
-    }
+    if (!teacher) return;
+    
+    // Assign each selected class
+    selectedClasses.forEach(classData => {
+        const isAlreadyAssigned = teacher.classes.some(c => c.id === classData.id);
+        if (!isAlreadyAssigned) {
+            dispatch(assignClassToTeacher({ teacherId, classData }));
+        }
+    });
 
-    dispatch(assignClassToTeacher({ teacherId, classData: selectedClass }));
-    setSelectedClass(null); // Clear selection after assignment
+    setSelectedClasses([]); // Clear selection after assignment
   };
 
   const handleUnassign = (teacherId: string, classId: number) => {
@@ -109,16 +120,18 @@ const TeachersForm: React.FC = () => {
 
   return (
       <div className="space-y-8">
-        <Card className="p-6">
+        <Card className="p-6 sticky top-0 bg-background/90 backdrop-blur-sm z-10">
             <div className="flex items-center space-x-2 mb-4">
                 <UserPlus className="text-primary" size={20} />
                 <h3 className="text-lg font-semibold">Assigner les classes aux enseignants</h3>
             </div>
-            <p className="text-sm text-muted-foreground">Double-cliquez sur une classe pour la sélectionner, puis double-cliquez sur un professeur pour la lui assigner.</p>
-            {selectedClass && (
+            <p className="text-sm text-muted-foreground">Cliquez pour sélectionner, Ctrl+Clic pour sélectionner plusieurs. Double-cliquez sur un professeur pour assigner.</p>
+            {selectedClasses.length > 0 && (
                 <div className="mt-4 p-3 bg-primary/10 rounded-lg flex items-center gap-2 text-primary border border-primary/20">
                     <Copy size={16} />
-                    <p className="text-sm font-medium">Classe sélectionnée : <strong>{selectedClass.name}</strong></p>
+                    <p className="text-sm font-medium">
+                        {selectedClasses.length} classe{selectedClasses.length > 1 ? 's' : ''} sélectionnée{selectedClasses.length > 1 ? 's' : ''} : {selectedClasses.map(c => c.name).join(', ')}
+                    </p>
                 </div>
             )}
         </Card>
@@ -132,12 +145,8 @@ const TeachersForm: React.FC = () => {
                 return null;
             }
 
-            const assignedClassIdsInGroup = new Set(
-                subjectTeachers.flatMap(t => t.classes.map(c => c.id))
-            );
-
             const unassignedClassesForGroup = allClasses.filter(
-                c => !assignedClassIdsInGroup.has(c.id)
+                c => !subjectTeachers.some(t => t.classes.some(assignedClass => assignedClass.id === c.id))
             );
 
             return (
@@ -156,7 +165,7 @@ const TeachersForm: React.FC = () => {
                                         <SelectableClass
                                             key={cls.id}
                                             classData={cls}
-                                            isSelected={selectedClass?.id === cls.id}
+                                            isSelected={selectedClasses.some(c => c.id === cls.id)}
                                             onSelect={handleSelectClass}
                                         />
                                     ))
