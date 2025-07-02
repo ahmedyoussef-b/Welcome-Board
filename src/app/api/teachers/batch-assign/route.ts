@@ -21,45 +21,49 @@ export async function POST(request: NextRequest) {
     }
 
     const assignments = validation.data;
-    const teacherIdsInvolved = assignments.map(a => a.teacherId);
-
-    // No teachers involved? Nothing to do.
-    if (teacherIdsInvolved.length === 0) {
-        return NextResponse.json({ message: "Aucune assignation à traiter." }, { status: 200 });
-    }
     
+    // Validate that a class is not assigned to more than one teacher in the payload.
+    const classAssignments = new Map<number, string>();
+    for (const assignment of assignments) {
+      for (const classId of assignment.classIds) {
+        if (classAssignments.has(classId)) {
+          return NextResponse.json({
+            message: `Conflit d'assignation : La classe ID ${classId} est assignée à plusieurs professeurs dans cette requête.`,
+          }, { status: 409 });
+        }
+        classAssignments.set(classId, assignment.teacherId);
+      }
+    }
+
     await prisma.$transaction(async (tx) => {
-        // Step 1: Un-assign ALL classes currently supervised by any of the teachers in this batch.
-        // This is the crucial step to prevent conflicts when a class is moved from one teacher to another.
-        // We are "releasing" all classes from their current supervisors (within this batch)
-        // before re-assigning them.
-        await tx.class.updateMany({
+      // Step 1: Un-assign all classes currently supervised by any of the teachers in this batch.
+      // This ensures that if a teacher loses a supervision, it's correctly updated.
+      const teacherIdsInvolved = assignments.map(a => a.teacherId);
+      await tx.class.updateMany({
+        where: {
+          supervisorId: {
+            in: teacherIdsInvolved,
+          },
+        },
+        data: {
+          supervisorId: null,
+        },
+      });
+
+      // Step 2: Set the new assignments.
+      // This is safe because we've validated for conflicts and cleared previous assignments for these teachers.
+      for (const assignment of assignments) {
+        if (assignment.classIds.length > 0) {
+          await tx.class.updateMany({
             where: {
-                supervisorId: {
-                    in: teacherIdsInvolved,
-                },
+              id: { in: assignment.classIds },
             },
             data: {
-                supervisorId: null,
+              supervisorId: assignment.teacherId,
             },
-        });
-        
-        // Step 2: Iterate through the new assignment list and apply them.
-        // Since we've cleared the previous assignments, we can safely set the new ones.
-        for (const assignment of assignments) {
-            if (assignment.classIds.length > 0) {
-                await tx.class.updateMany({
-                    where: {
-                        id: {
-                            in: assignment.classIds,
-                        },
-                    },
-                    data: {
-                        supervisorId: assignment.teacherId,
-                    },
-                });
-            }
+          });
         }
+      }
     });
 
     return NextResponse.json({ message: "Assignations des professeurs mises à jour avec succès." }, { status: 200 });
@@ -68,6 +72,9 @@ export async function POST(request: NextRequest) {
     console.error('[API/batch-assign] An error occurred:', error);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
       console.error('[API/batch-assign] Prisma Error:', { code: error.code, meta: error.meta, message: error.message });
+       if (error.code === 'P2003') { // Foreign key constraint failed
+          return NextResponse.json({ message: `Erreur de référence: un professeur ou une classe spécifié n'existe pas.`, details: error.meta }, { status: 400 });
+      }
       return NextResponse.json({ message: `Erreur de base de données. Code: ${error.code}`, details: error.meta }, { status: 500 });
     }
     const errorMessage = error instanceof Error ? error.message : 'Une erreur interne est survenue.';

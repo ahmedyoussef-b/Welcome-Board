@@ -115,14 +115,21 @@ export const teachersSlice = createSlice({
     },
     assignClassToTeacher(state, action: PayloadAction<{ teacherId: string; classData: ClassWithGrade }>) {
         const { teacherId, classData } = action.payload;
-        state.items = state.items.map(teacher => 
-            teacher.id !== teacherId
-            ? teacher
-            : {
-                ...teacher,
-                classes: [...teacher.classes, classData].sort((a, b) => a.name.localeCompare(b.name)),
-              }
-        );
+        // Step 1: Remove the class from any teacher who currently supervises it.
+        // This ensures a class can only be supervised by one teacher at a time in the Redux state.
+        state.items.forEach(teacher => {
+            const classIndex = teacher.classes.findIndex(c => c.id === classData.id);
+            if (classIndex > -1) {
+                teacher.classes.splice(classIndex, 1);
+            }
+        });
+
+        // Step 2: Find the new teacher and assign the class to them.
+        const targetTeacher = state.items.find(teacher => teacher.id === teacherId);
+        if (targetTeacher) {
+            targetTeacher.classes.push(classData);
+            targetTeacher.classes.sort((a, b) => a.name.localeCompare(b.name));
+        }
     },
     unassignClassFromTeacher(state, action: PayloadAction<{ teacherId: string; classId: number }>) {
         const { teacherId, classId } = action.payload;
