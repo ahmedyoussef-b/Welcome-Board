@@ -21,10 +21,13 @@ const schoolConfigSlice = createSlice({
   name: 'schoolConfig',
   initialState,
   reducers: {
-    setSchoolConfig(state, action: PayloadAction<SchoolData>) {
-      return action.payload;
+    setSchoolConfig(state, action: PayloadAction<Partial<SchoolData>>) {
+      // Merge with initial state to ensure all fields are always present,
+      // preventing errors if a partial or empty config is loaded from a draft.
+      return { ...initialState, ...action.payload };
     },
     updateSchoolConfig(state, action: PayloadAction<Partial<SchoolData>>) {
+      // Ensure current state is always spread first to preserve existing values
       return { ...state, ...action.payload };
     },
   },
