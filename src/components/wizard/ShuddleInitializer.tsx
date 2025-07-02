@@ -9,9 +9,11 @@ import { setAllTeachers } from '@/lib/redux/features/teachers/teachersSlice';
 import { setAllClassrooms } from '@/lib/redux/features/classrooms/classroomsSlice';
 import { setInitialSchedule } from '@/lib/redux/features/schedule/scheduleSlice';
 import { setAllGrades } from '@/lib/redux/features/grades/gradesSlice';
-import { setAllRequirements } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
+import { setAllRequirements as setAllLessonRequirements } from '@/lib/redux/features/lessonRequirements/lessonRequirementsSlice';
+import { setAllTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
+import { setAllSubjectRequirements } from '@/lib/redux/features/subjectRequirementsSlice';
 import ShuddlePageClient from './ShuddlePageClient';
-import type { ClassWithGrade, Subject, TeacherWithDetails, Classroom, Lesson, Grade, LessonRequirement } from '@/types';
+import type { ClassWithGrade, Subject, TeacherWithDetails, Classroom, Lesson, Grade, LessonRequirement, TeacherConstraint, SubjectRequirement } from '@/types';
 
 interface ShuddleInitializerProps {
     initialData: {
@@ -22,6 +24,8 @@ interface ShuddleInitializerProps {
         lessons: Lesson[];
         grades: Grade[];
         lessonRequirements: LessonRequirement[];
+        teacherConstraints: TeacherConstraint[];
+        subjectRequirements: SubjectRequirement[];
     };
 }
 
@@ -35,7 +39,9 @@ export default function ShuddleInitializer({ initialData }: ShuddleInitializerPr
         dispatch(setAllClassrooms(initialData.classrooms));
         dispatch(setInitialSchedule(initialData.lessons));
         dispatch(setAllGrades(initialData.grades));
-        dispatch(setAllRequirements(initialData.lessonRequirements));
+        dispatch(setAllLessonRequirements(initialData.lessonRequirements));
+        dispatch(setAllTeacherConstraints(initialData.teacherConstraints));
+        dispatch(setAllSubjectRequirements(initialData.subjectRequirements));
     }, [dispatch, initialData]);
 
     return <ShuddlePageClient />;

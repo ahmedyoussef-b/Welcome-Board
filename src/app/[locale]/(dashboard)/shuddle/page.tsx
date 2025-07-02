@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/shuddle/page.tsx
 import prisma from '@/lib/prisma';
 import ShuddleInitializer from '@/components/wizard/ShuddleInitializer';
-import type { ClassWithGrade, Subject, TeacherWithDetails, Classroom, Lesson, Grade, LessonRequirement } from '@/types';
+import type { ClassWithGrade, Subject, TeacherWithDetails, Classroom, Lesson, Grade, LessonRequirement, TeacherConstraint, SubjectRequirement } from '@/types';
 
 export default async function ShuddlePage() {
     const classesData = await prisma.class.findMany({ 
@@ -45,8 +45,10 @@ export default async function ShuddlePage() {
         orderBy: { level: 'asc' }
     });
     
-    // Safely fetch lesson requirements, in case the table doesn't exist due to a failed migration
+    // Safely fetch constraints, in case the models don't exist due to a failed migration
     const lessonRequirementsData = (prisma.lessonRequirement && await prisma.lessonRequirement.findMany()) || [];
+    const teacherConstraintsData = (prisma.teacherConstraint && await prisma.teacherConstraint.findMany()) || [];
+    const subjectRequirementsData = (prisma.subjectRequirement && await prisma.subjectRequirement.findMany()) || [];
 
     // Serialize data to convert Date objects to strings, preventing Redux non-serializable errors.
     const serializableData = JSON.parse(JSON.stringify({
@@ -57,6 +59,8 @@ export default async function ShuddlePage() {
         lessons: lessonsData,
         grades: gradesData,
         lessonRequirements: lessonRequirementsData,
+        teacherConstraints: teacherConstraintsData,
+        subjectRequirements: subjectRequirementsData,
     }));
 
     const initialData = {
@@ -67,6 +71,8 @@ export default async function ShuddlePage() {
         lessons: serializableData.lessons as Lesson[],
         grades: serializableData.grades as Grade[],
         lessonRequirements: serializableData.lessonRequirements as LessonRequirement[],
+        teacherConstraints: serializableData.teacherConstraints as TeacherConstraint[],
+        subjectRequirements: serializableData.subjectRequirements as SubjectRequirement[],
     };
 
     return <ShuddleInitializer initialData={initialData} />;
