@@ -14,7 +14,6 @@ import { updateLessonRoom } from '@/lib/redux/features/schedule/scheduleSlice';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { findConflictingConstraint } from '@/lib/schedule-utils';
 
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
@@ -96,7 +95,6 @@ const RoomSelectorPopover: React.FC<{
         const [hour, minute] = timeSlot.split(':').map(Number);
         const checkTime = new Date(Date.UTC(1970, 0, 1, hour, minute)).getTime();
         
-        // Defensive check for fullSchedule
         if (!fullSchedule || !Array.isArray(fullSchedule)) {
             return [];
         }
@@ -117,7 +115,6 @@ const RoomSelectorPopover: React.FC<{
     }, [day, timeSlot, fullSchedule, lesson]);
     
     const availableRooms = useMemo(() => {
-        // Defensive check for wizardData.rooms
         if (!wizardData || !Array.isArray(wizardData.rooms)) {
             return [];
         }
@@ -258,8 +255,7 @@ interface TimetableDisplayProps {
   onDeleteLesson?: (lessonId: number) => void;
   onEmptyCellDoubleClick?: (day: Day, timeSlot: string) => void;
   selectedSubject: Subject | null;
-  viewMode: 'class' | 'teacher';
-  selectedClassId: string;
+  availableSlots: Set<string>;
 }
 
 const TimetableDisplay: React.FC<TimetableDisplayProps> = ({ 
@@ -270,8 +266,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
     onDeleteLesson = () => {}, 
     onEmptyCellDoubleClick,
     selectedSubject,
-    viewMode,
-    selectedClassId
+    availableSlots,
 }) => {
   const schoolDays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const timeSlots = useMemo(() => ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'], []);
@@ -309,43 +304,11 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
     return { scheduleGrid: grid, spannedSlots: localSpannedSlots };
   }, [scheduleData, wizardData, timeSlots]);
   
-  const isSlotAvailable = useCallback((day: Day, time: string): boolean => {
-    if (!selectedSubject || viewMode !== 'class' || !selectedClassId) {
-        return false;
-    }
-    
-    const potentialTeachers = wizardData.teachers.filter(t =>
-        t.subjects.some(s => s.id === selectedSubject.id)
-    );
-
-    if (potentialTeachers.length === 0) return false;
-
-    const isSlotOccupiedForClass = fullSchedule.some(l => l.classId === parseInt(selectedClassId) && l.day === day && formatUtcTime(l.startTime) === time);
-                
-    if (isSlotOccupiedForClass) return false;
-    
-    const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
-        const isTeacherBusy = fullSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatUtcTime(l.startTime) === time);
-        
-        const [hour, minute] = time.split(':').map(Number);
-        const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
-        const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
-        
-        const constraint = findConflictingConstraint(teacher.id, day, time, lessonEndTimeStr, wizardData.teacherConstraints || []);
-        
-        return !isTeacherBusy && !constraint;
-    });
-
-    return isAnyTeacherAvailable;
-  }, [selectedSubject, viewMode, selectedClassId, wizardData, fullSchedule]);
-
   const getSubjectBgColor = useCallback((subjectId: number): string => {
     const subjectColors = ['bg-primary/20', 'bg-secondary/20', 'bg-accent/20', 'bg-chart-1/20', 'bg-chart-2/20', 'bg-chart-3/20', 'bg-chart-4/20', 'bg-chart-5/20'];
     const index = wizardData.subjects.findIndex((s: Subject) => s.id === subjectId);
     return subjectColors[index % subjectColors.length] || 'bg-muted';
   }, [wizardData.subjects]);
-
-  const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
   
   const exportToPDF = () => { window.print(); };
 
@@ -400,7 +363,9 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                           </TableCell>
                         );
                     } else {
-                        const isHighlighted = isSlotAvailable(dayEnum, time);
+                        const isHighlighted = availableSlots.has(cellId);
+                        const highlightColor = selectedSubject ? getSubjectBgColor(selectedSubject.id) : null;
+
                         return (
                             <TableCell key={cellId} className="p-0 border align-top">
                                 <DroppableEmptyCell

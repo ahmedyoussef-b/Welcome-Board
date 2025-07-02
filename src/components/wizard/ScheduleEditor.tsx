@@ -23,6 +23,8 @@ interface ScheduleEditorProps {
 
 type SchedulableLesson = Omit<Lesson, 'id' | 'createdAt' | 'updatedAt'>;
 
+const formatTimeSimple = (date: string | Date) => `${new Date(date).getUTCHours().toString().padStart(2, '0')}:00`;
+
 export default function ScheduleEditor({ wizardData, onBackToWizard }: ScheduleEditorProps) {
     const dispatch = useAppDispatch();
     const { toast } = useToast();
@@ -46,6 +48,62 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: ScheduleE
             return schedule.filter(lesson => lesson.teacherId === selectedTeacherId);
         }
     }, [schedule, viewMode, selectedClassId, selectedTeacherId]);
+
+    const availableSlots = useMemo(() => {
+      const slots = new Set<string>();
+      if (!selectedSubject || viewMode !== 'class' || !selectedClassId) {
+          return slots;
+      }
+  
+      const schoolDays = wizardData.school.schoolDays.map(d => d.toUpperCase() as Day);
+      const timeSlots = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+  
+      const potentialTeachers = wizardData.teachers.filter(t =>
+          t.subjects.some(s => s.id === selectedSubject.id)
+      );
+  
+      if (potentialTeachers.length === 0) return slots;
+      
+      schoolDays.forEach(day => {
+          timeSlots.forEach(time => {
+              const isSlotOccupiedForClass = schedule.some(l => 
+                  l.classId === parseInt(selectedClassId, 10) && 
+                  l.day === day && 
+                  formatTimeSimple(l.startTime) === time
+              );
+              
+              if (isSlotOccupiedForClass) return;
+  
+              const isAnyTeacherAvailable = potentialTeachers.some(teacher => {
+                  const isTeacherBusy = schedule.some(l => 
+                      l.teacherId === teacher.id && 
+                      l.day === day && 
+                      formatTimeSimple(l.startTime) === time
+                  );
+  
+                  const [hour, minute] = time.split(':').map(Number);
+                  const lessonEndTime = new Date(0, 0, 0, hour, minute + wizardData.school.sessionDuration);
+                  const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+                  
+                  const constraint = findConflictingConstraint(
+                      teacher.id, 
+                      day, 
+                      time, 
+                      lessonEndTimeStr, 
+                      wizardData.teacherConstraints || []
+                  );
+  
+                  return !isTeacherBusy && !constraint;
+              });
+  
+              if (isAnyTeacherAvailable) {
+                  slots.add(`${day}-${time}`);
+              }
+          });
+      });
+  
+      return slots;
+    }, [selectedSubject, viewMode, selectedClassId, schedule, wizardData]);
 
     const handleDoubleClickOnSlot = useCallback((day: Day, time: string) => {
         if (!selectedSubject) {
@@ -166,8 +224,7 @@ export default function ScheduleEditor({ wizardData, onBackToWizard }: ScheduleE
                     onDeleteLesson={handleDeleteLesson}
                     onEmptyCellDoubleClick={handleDoubleClickOnSlot}
                     selectedSubject={selectedSubject}
-                    viewMode={viewMode}
-                    selectedClassId={selectedClassId}
+                    availableSlots={availableSlots}
                 />
             </div>
         </div>
