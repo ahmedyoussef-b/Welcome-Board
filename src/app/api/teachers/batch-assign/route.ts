@@ -20,54 +20,47 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "Données d'entrée invalides", errors: validation.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const newAssignments = validation.data;
-    const teacherIds = newAssignments.map(a => a.teacherId);
-    
-    if (teacherIds.length === 0) {
-      return NextResponse.json({ message: "Aucune assignation à traiter." }, { status: 200 });
+    const assignments = validation.data;
+    const teacherIdsInvolved = assignments.map(a => a.teacherId);
+
+    // No teachers involved? Nothing to do.
+    if (teacherIdsInvolved.length === 0) {
+        return NextResponse.json({ message: "Aucune assignation à traiter." }, { status: 200 });
     }
-
-    // --- State Calculation Logic ---
     
-    // 1. Fetch the current state of all classes that are currently supervised by the teachers involved.
-    const currentSupervisedClasses = await prisma.class.findMany({
-        where: { supervisorId: { in: teacherIds } },
-        select: { id: true, supervisorId: true }
-    });
-    const currentAssignmentsMap = new Map(currentSupervisedClasses.map(c => [c.id, c.supervisorId]));
-
-    // 2. Create a map of the NEW desired state from the client payload.
-    const newAssignmentsMap = new Map<number, string>();
-    newAssignments.forEach(a => {
-        a.classIds.forEach(cid => {
-            newAssignmentsMap.set(cid, a.teacherId);
+    await prisma.$transaction(async (tx) => {
+        // Step 1: Un-assign ALL classes currently supervised by any of the teachers in this batch.
+        // This is the crucial step to prevent conflicts when a class is moved from one teacher to another.
+        // We are "releasing" all classes from their current supervisors (within this batch)
+        // before re-assigning them.
+        await tx.class.updateMany({
+            where: {
+                supervisorId: {
+                    in: teacherIdsInvolved,
+                },
+            },
+            data: {
+                supervisorId: null,
+            },
         });
-    });
-
-    // 3. Determine the minimal list of updates required.
-    const updatesToPerform: { classId: number, newSupervisorId: string | null }[] = [];
-    const allAffectedClassIds = new Set([...currentAssignmentsMap.keys(), ...newAssignmentsMap.keys()]);
-
-    allAffectedClassIds.forEach(classId => {
-        const currentSupervisor = currentAssignmentsMap.get(classId) ?? null;
-        const newSupervisor = newAssignmentsMap.get(classId) ?? null;
-
-        if (currentSupervisor !== newSupervisor) {
-            updatesToPerform.push({ classId: classId, newSupervisorId: newSupervisor });
+        
+        // Step 2: Iterate through the new assignment list and apply them.
+        // Since we've cleared the previous assignments, we can safely set the new ones.
+        for (const assignment of assignments) {
+            if (assignment.classIds.length > 0) {
+                await tx.class.updateMany({
+                    where: {
+                        id: {
+                            in: assignment.classIds,
+                        },
+                    },
+                    data: {
+                        supervisorId: assignment.teacherId,
+                    },
+                });
+            }
         }
     });
-
-    // 4. Execute the precise updates in a single transaction if there are changes.
-    if (updatesToPerform.length > 0) {
-        await prisma.$transaction(
-            updatesToPerform.map(update => 
-                prisma.class.update({
-                    where: { id: update.classId },
-                    data: { supervisorId: update.newSupervisorId }
-                })
-            )
-        );
-    }
 
     return NextResponse.json({ message: "Assignations des professeurs mises à jour avec succès." }, { status: 200 });
 
