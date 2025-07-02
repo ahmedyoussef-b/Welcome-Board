@@ -1,7 +1,7 @@
 // src/components/schedule/TimetableDisplay.tsx
 'use client';
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,11 +17,9 @@ import { cn } from '@/lib/utils';
 import { mergeConsecutiveLessons, findConflictingConstraint } from '@/lib/schedule-utils';
 import { ScrollArea } from '../ui/scroll-area';
 
-
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
 
 const formatTimeSimple = (date: string | Date): string => `${new Date(date).getUTCHours().toString().padStart(2, '0')}:00`;
-
 
 // --- Internal Components ---
 
@@ -36,18 +34,20 @@ const RoomSelectorPopover: React.FC<{
     const [isOpen, setIsOpen] = useState(false);
 
     const occupiedRoomIds = useMemo(() => {
-        if (!Array.isArray(fullSchedule)) return new Set<number>();
+        const rooms = wizardData?.rooms ?? [];
+        if (!Array.isArray(fullSchedule) || !Array.isArray(rooms)) return new Set<number>();
         return new Set(
             fullSchedule
                 .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
                 .map(l => l.classroomId!)
         );
-    }, [day, timeSlot, fullSchedule]);
+    }, [day, timeSlot, fullSchedule, wizardData?.rooms]);
     
     const availableRooms = useMemo(() => {
-        if (!Array.isArray(wizardData.rooms)) return [];
-        return wizardData.rooms.filter(room => !occupiedRoomIds.has(room.id));
-    }, [wizardData.rooms, occupiedRoomIds]);
+        const rooms = wizardData?.rooms ?? [];
+        if (!Array.isArray(rooms)) return [];
+        return rooms.filter(room => !occupiedRoomIds.has(room.id));
+    }, [wizardData?.rooms, occupiedRoomIds]);
     
     const handleRoomChange = (newRoomId: number | null) => {
         if (!lesson) return;
@@ -129,8 +129,9 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
     };
     const getClassName = (id: number) => wizardData.classes.find(c => c.id === id)?.name || 'N/A';
     const getRoomName = (id: number | null) => {
-      if (!wizardData.rooms || !Array.isArray(wizardData.rooms)) return 'N/A';
-      return wizardData.rooms.find(r => r.id === id)?.abbreviation || wizardData.rooms.find(r => r.id === id)?.name || 'N/A';
+      const rooms = wizardData?.rooms ?? [];
+      if (!Array.isArray(rooms)) return 'N/A';
+      return rooms.find(r => r.id === id)?.abbreviation || rooms.find(r => r.id === id)?.name || 'N/A';
     }
 
     const subjectColors = ['bg-primary/10 border-primary/20', 'bg-secondary/10 border-secondary/20', 'bg-accent/10 border-accent/20', 'bg-chart-1/20 border-chart-1/30', 'bg-chart-2/20 border-chart-2/30', 'bg-chart-3/20 border-chart-3/30', 'bg-chart-4/20 border-chart-4/30', 'bg-chart-5/20 border-chart-5/30'];
@@ -164,65 +165,60 @@ const DraggableLesson = ({ lesson, wizardData, onDelete, isEditable, fullSchedul
 const InteractiveEmptyCell: React.FC<{
   day: Day;
   timeSlot: string;
-  viewMode: 'class' | 'teacher';
-  selectedViewId: string;
   wizardData: WizardData;
   schedule: Lesson[];
   onAddLesson: (subject: Subject, day: Day, timeSlot: string) => void;
-}> = ({ day, timeSlot, viewMode, selectedViewId, wizardData, schedule, onAddLesson }) => {
+  isDropDisabled?: boolean;
+  viewMode: 'class' | 'teacher';
+  selectedViewId: string;
+}> = ({ day, timeSlot, wizardData, schedule, onAddLesson, isDropDisabled = false, viewMode, selectedViewId }) => {
     const { setNodeRef } = useDroppable({
         id: `empty-${day}-${timeSlot}`,
-        data: { day, time: timeSlot }
+        data: { day, time: timeSlot },
+        disabled: isDropDisabled,
     });
-
-    // Guard against undefined wizardData or its properties
-    if (!wizardData) return <div ref={setNodeRef} className="h-24 w-full" />;
-
-    const { school, subjects, teachers, rooms, teacherConstraints = [] } = wizardData;
-
+    
     const availableRooms = useMemo(() => {
-        if (!Array.isArray(rooms) || !Array.isArray(schedule)) return [];
+        const rooms = wizardData?.rooms ?? [];
+        const currentSchedule = schedule ?? [];
+        if (!Array.isArray(currentSchedule) || !Array.isArray(rooms)) return [];
         
         const occupiedRoomIds = new Set(
-            schedule
+            currentSchedule
                 .filter(l => l.day === day && formatTimeSimple(l.startTime) === timeSlot && l.classroomId != null)
                 .map(l => l.classroomId!)
         );
         return rooms.filter(room => !occupiedRoomIds.has(room.id));
-    }, [day, timeSlot, schedule, rooms]);
-
+    }, [day, timeSlot, schedule, wizardData?.rooms]);
+    
     const availableSubjects = useMemo(() => {
-        if (!Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(schedule)) return [];
+        const subjects = wizardData?.subjects ?? [];
+        const teachers = wizardData?.teachers ?? [];
+        const school = wizardData?.school;
+        const currentSchedule = schedule ?? [];
+        const teacherConstraints = wizardData?.teacherConstraints ?? [];
+        if (!school || !Array.isArray(subjects) || !Array.isArray(teachers) || !Array.isArray(currentSchedule)) return [];
 
         if (viewMode !== 'class' || !selectedViewId) return [];
         const classIdNum = parseInt(selectedViewId, 10);
         if (isNaN(classIdNum)) return [];
 
-        // Is the class itself busy?
-        if (schedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) {
+        if (currentSchedule.some(l => l.classId === classIdNum && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) {
             return [];
         }
 
         return subjects.filter(subject => {
-            const isTeacherAvailable = teachers.some(teacher => {
-                if (!Array.isArray(teacher.subjects)) return false;
-                const canTeach = teacher.subjects.some(s => s.id === subject.id);
-                if (!canTeach) return false;
+            return teachers.some(teacher => {
+                if (!Array.isArray(teacher.subjects) || !teacher.subjects.some(s => s.id === subject.id)) return false;
+                if (currentSchedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot)) return false;
 
-                const isBusy = schedule.some(l => l.teacherId === teacher.id && l.day === day && formatTimeSimple(l.startTime) === timeSlot);
-                if (isBusy) return false;
-
-                if (!school) return false;
                 const [hour, minute] = timeSlot.split(':').map(Number);
-                const lessonEndTimeDate = new Date(Date.UTC(0, 0, 0, hour, minute + school.sessionDuration));
-                const lessonEndTimeStr = `${String(lessonEndTimeDate.getUTCHours()).padStart(2, '0')}:${String(lessonEndTimeDate.getUTCMinutes()).padStart(2, '0')}`;
-                const constraint = findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints);
-                
-                return !constraint;
+                const lessonEndTime = new Date(Date.UTC(0, 0, 0, hour, minute + school.sessionDuration));
+                const lessonEndTimeStr = `${String(lessonEndTime.getUTCHours()).padStart(2, '0')}:${String(lessonEndTime.getUTCMinutes()).padStart(2, '0')}`;
+                return !findConflictingConstraint(teacher.id, day, timeSlot, lessonEndTimeStr, teacherConstraints);
             });
-            return isTeacherAvailable;
         });
-    }, [day, timeSlot, schedule, wizardData, selectedViewId, viewMode, subjects, teachers, school]);
+    }, [day, timeSlot, schedule, wizardData, selectedViewId, viewMode]);
 
     return (
         <div ref={setNodeRef} className="h-24 w-full rounded-md transition-colors relative group p-1">
@@ -308,7 +304,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
       const startTime = new Date(lesson.startTime);
       const endTime = new Date(lesson.endTime);
       const durationInMinutes = (endTime.getTime() - startTime.getTime()) / (1000 * 60);
-      const rowSpan = Math.max(1, Math.round(durationInMinutes / wizardData.school.sessionDuration));
+      const rowSpan = Math.max(1, Math.round(durationInMinutes / (wizardData.school?.sessionDuration || 60) ));
 
       grid[cellId] = { lesson, rowSpan };
 
@@ -334,7 +330,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
             <div className="flex justify-between items-center">
             <div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">
-                Emplois du Temps - {wizardData.school.name}
+                Emplois du Temps - {wizardData.school?.name ?? 'École'}
                 </h2>
                 <p className="text-muted-foreground">
                     Consultez l'emploi du temps généré.
@@ -367,7 +363,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                       const cellId = `${dayEnum}-${time}`;
 
                       if (spannedSlots.has(cellId)) {
-                          return null; // This cell is covered by a rowSpan
+                          return null;
                       }
 
                       const cellData = scheduleGrid[cellId];
@@ -389,6 +385,7 @@ const TimetableDisplay: React.FC<TimetableDisplayProps> = ({
                                       wizardData={wizardData}
                                       schedule={fullSchedule}
                                       onAddLesson={onAddLesson}
+                                      isDropDisabled={!isEditable}
                                   />
                               </TableCell>
                           );
