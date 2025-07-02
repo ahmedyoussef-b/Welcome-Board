@@ -1,3 +1,4 @@
+
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
@@ -11,6 +12,7 @@ import type { TeacherWithDetails, Subject, ClassWithGrade } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { assignClassToTeacher, unassignClassFromTeacher } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
+import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { useToast } from '@/hooks/use-toast';
 
 // --- Internal Components for Drag and Drop ---
@@ -75,6 +77,7 @@ interface TeachersFormProps {
 const TeachersForm: React.FC<TeachersFormProps> = ({ data: teachers }) => {
   const dispatch = useAppDispatch();
   const allClasses = useAppSelector(selectAllClasses);
+  const allSubjects = useAppSelector(selectAllMatieres);
   const { toast } = useToast();
 
   const subjectsWithTeachers = useMemo(() => {
