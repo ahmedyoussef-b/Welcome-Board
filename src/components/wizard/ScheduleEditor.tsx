@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { addLesson, removeLesson, saveSchedule, updateLessonSlot, selectSchedule, selectScheduleStatus } from '@/lib/redux/features/schedule/scheduleSlice';
+import { addLesson, removeLesson, saveSchedule, selectSchedule, selectScheduleStatus } from '@/lib/redux/features/schedule/scheduleSlice';
 import { useToast } from '@/hooks/use-toast';
 import type { WizardData, Lesson, Subject, Day, TeacherWithDetails, TeacherConstraint } from '@/types';
 import { ScheduleSidebar } from '../schedule/ScheduleSidebar';
@@ -72,8 +72,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
         const schoolDays = wizardData.school.schoolDays.map(d => d.toUpperCase() as Day);
         
         const potentialTeachers = wizardData.teachers.filter(t =>
-            t.subjects.some(s => s.id === selectedSubject.id) &&
-            (t.classes.length === 0 || t.classes.some(c => c.id === parseInt(selectedClassId)))
+            t.subjects.some(s => s.id === selectedSubject.id)
         );
 
         if (potentialTeachers.length > 0) {
@@ -119,8 +118,7 @@ const ScheduleEditor: React.FC<ScheduleEditorProps> = ({ wizardData, onBackToWiz
         const [hour, minute] = time.split(':').map(Number);
         
         const potentialTeachers = wizardData.teachers.filter(t =>
-            t.subjects.some(s => s.id === selectedSubject.id) &&
-            (t.classes.length === 0 || t.classes.some(c => c.id === parseInt(selectedClassId)))
+            t.subjects.some(s => s.id === selectedSubject.id)
         );
 
         const availableTeacher = potentialTeachers.find(teacher => {

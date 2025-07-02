@@ -225,8 +225,8 @@ const DroppableEmptyCell = ({ day, timeSlot, onDoubleClick, isHighlighted, highl
         <div
             onDoubleClick={() => onDoubleClick?.(day, timeSlot)}
             className={cn(
-                'h-20 w-full rounded-md transition-colors relative group p-1',
-                isHighlighted ? `${highlightColor} border-2 border-dashed border-primary animate-pulse` : 'hover:bg-muted/50'
+                'h-24 w-full rounded-md transition-colors relative group p-1',
+                isHighlighted ? `${highlightColor} border-2 border-dashed border-primary animate-subtle-pulse` : 'hover:bg-muted/50'
             )}
         >
         </div>
