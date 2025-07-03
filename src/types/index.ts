@@ -1,9 +1,32 @@
 // src/types/index.ts
 
-// Re-export all types and enums from prisma for other files to use
-export * from "@prisma/client";
+// Manually define enums needed on the client.
+// These must be kept in sync with prisma/schema.prisma.
+export enum Role {
+  ADMIN = 'ADMIN',
+  TEACHER = 'TEACHER',
+  STUDENT = 'STUDENT',
+  PARENT = 'PARENT',
+  VISITOR = 'VISITOR',
+}
 
-// Import specific types needed within this file for custom type definitions
+export enum UserSex {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
+export enum Day {
+  MONDAY = 'MONDAY',
+  TUESDAY = 'TUESDAY',
+  WEDNESDAY = 'WEDNESDAY',
+  THURSDAY = 'THURSDAY',
+  FRIDAY = 'FRIDAY',
+  SATURDAY = 'SATURDAY',
+  SUNDAY = 'SUNDAY',
+}
+
+// TYPE IMPORTS FROM PRISMA - these are stripped out at build time for the client
+// This is the key to preventing server code from leaking to the client.
 import type {
     User as PrismaUser,
     Admin as PrismaAdmin,
@@ -13,7 +36,6 @@ import type {
     Announcement as PrismaAnnouncement,
     Session as PrismaSession,
     RefreshToken as PrismaRefreshToken,
-    Role as PrismaRoleEnumValue,
     Class as PrismaClass,
     Subject as PrismaSubject,
     Classroom as PrismaClassroom,
@@ -23,7 +45,27 @@ import type {
     Assignment as PrismaAssignment,
     Event as PrismaEvent
 } from "@prisma/client";
-import { Day } from "@prisma/client";
+
+// Re-export specific types if needed elsewhere, but it's better to import directly from @prisma/client on the server.
+// However, to minimize breaking changes, we re-export the *types*.
+export type {
+    PrismaUser as User,
+    PrismaAdmin as Admin,
+    PrismaTeacher as Teacher,
+    PrismaStudent as Student,
+    PrismaParent as Parent,
+    PrismaAnnouncement as Announcement,
+    PrismaSession as Session,
+    PrismaRefreshToken as RefreshToken,
+    PrismaClass as Class,
+    PrismaSubject as Subject,
+    PrismaClassroom as Classroom,
+    PrismaGrade as Grade,
+    PrismaLesson as Lesson,
+    PrismaExam as Exam,
+    PrismaAssignment as Assignment,
+    PrismaEvent as Event
+};
 
 
 // Types sécurisés (sans données sensibles)
@@ -131,6 +173,7 @@ export interface WizardData {
   subjects: PrismaSubject[];
   teachers: TeacherWithDetails[];
   rooms: PrismaClassroom[];
+  grades: PrismaGrade[];
   lessonRequirements: LessonRequirement[];
   teacherConstraints?: TeacherConstraint[];
   subjectRequirements?: SubjectRequirement[];
@@ -184,14 +227,14 @@ export interface RegisterCredentials {
   username: string;
   email: string;
   password: string;
-  role: PrismaRoleEnumValue;
+  role: Role;
   name?: string;
 }
 
 // Types pour les payloads JWT
 export interface JwtPayload {
   userId: string;
-  role: PrismaRoleEnumValue;
+  role: Role;
   email: string;
   name?: string;
   iat: number;

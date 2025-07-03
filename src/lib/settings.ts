@@ -1,5 +1,5 @@
 
-import type { Role } from "@/types/index"; // Use Role type from centralized source
+import { Role } from "@/types/index"; // Use Role type from centralized source
 
 export const ITEM_PER_PAGE = 10;
 
@@ -11,23 +11,23 @@ type RouteAccessMap = {
 
 // Values used here must match the string values of the Role enum
 export const routeAccessMap: RouteAccessMap = {
-  "/admin(.*)": ["ADMIN"],
-  "/student(.*)": ["STUDENT"],
-  "/teacher(.*)": ["TEACHER"],
-  "/parent(.*)": ["PARENT"],
-  "/list/teachers": ["ADMIN", "TEACHER"],
-  "/list/students": ["ADMIN", "TEACHER"],
-  "/list/parents": ["ADMIN", "TEACHER"],
-  "/list/subjects": ["ADMIN"],
-  "/list/classes": ["ADMIN", "TEACHER"],
-  "/list/lessons": ["ADMIN", "TEACHER"], 
-  "/list/exams": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/list/assignments": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/list/results": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/list/attendance": ["ADMIN", "TEACHER", "STUDENT", "PARENT"], 
-  "/list/events": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/list/announcements": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/list/messages": ["ADMIN", "TEACHER", "STUDENT", "PARENT"], 
-  "/profile(.*)": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
-  "/settings(.*)": ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
+  "/admin(.*)": [Role.ADMIN],
+  "/student(.*)": [Role.STUDENT],
+  "/teacher(.*)": [Role.TEACHER],
+  "/parent(.*)": [Role.PARENT],
+  "/list/teachers": [Role.ADMIN, Role.TEACHER],
+  "/list/students": [Role.ADMIN, Role.TEACHER],
+  "/list/parents": [Role.ADMIN, Role.TEACHER],
+  "/list/subjects": [Role.ADMIN],
+  "/list/classes": [Role.ADMIN, Role.TEACHER],
+  "/list/lessons": [Role.ADMIN, Role.TEACHER], 
+  "/list/exams": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/list/assignments": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/list/results": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/list/attendance": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT], 
+  "/list/events": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/list/announcements": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/list/messages": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT], 
+  "/profile(.*)": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
+  "/settings(.*)": [Role.ADMIN, Role.TEACHER, Role.STUDENT, Role.PARENT],
 };
