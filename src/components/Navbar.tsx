@@ -9,9 +9,13 @@ import NotificationDropdown from './NotificationDropdown';
 import { useSelector } from "react-redux";
 import { selectCurrentUser } from "@/lib/redux/slices/authSlice";
 import { selectUnreadCount } from '@/lib/redux/slices/notificationSlice';
-import type { SafeUser } from "@/types";
+import type { SafeUser, Role } from "@/types";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Menu as MenuIcon } from "lucide-react";
+import Menu from "@/components/Menu";
 
 const Navbar = () => {
   const currentUser: SafeUser | null = useSelector(selectCurrentUser);
@@ -22,15 +26,15 @@ const Navbar = () => {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
 
-  // Synchronise l'état de la recherche avec les paramètres de l'URL (par exemple, pour la navigation arrière/avant)
+  const rolePath = currentUser?.role.toLowerCase();
+  const locale = 'fr';
+
   useEffect(() => {
     setSearchQuery(searchParams.get('search') || '');
   }, [searchParams]);
 
-  // Applique un délai (debounce) à la recherche pour mettre à jour l'URL après que l'utilisateur a cessé de taper
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      // Ne met pas à jour le routeur si la requête dans l'URL est déjà la même
       if (searchQuery === (searchParams.get('search') || '')) {
         return;
       }
@@ -41,9 +45,9 @@ const Navbar = () => {
       } else {
         params.delete('search');
       }
-      params.delete('page'); // Réinitialise la pagination lors d'une nouvelle recherche
+      params.delete('page');
       router.push(`${pathname}?${params.toString()}`);
-    }, 500); // délai de 500ms
+    }, 500);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, pathname, searchParams, router]);
@@ -54,84 +58,118 @@ const Navbar = () => {
 
   if (!mounted) {
     return (
-      <div className="flex items-center justify-between p-4 animate-pulse">
-        <div className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-gray-300 px-2 h-10 w-64 bg-muted">
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-4">
+            <div className="h-10 w-10 bg-muted rounded-md animate-pulse"></div>
+            <div className="hidden md:block h-8 w-40 bg-muted rounded-lg animate-pulse"></div>
         </div>
-        <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
-          <div className="bg-muted rounded-full w-8 h-8"></div>
-          <div className="bg-muted rounded-full w-8 h-8"></div>
-          <div className="bg-muted rounded-full w-8 h-8"></div>
-          <div className="flex flex-col text-right">
-            <div className="h-4 w-24 bg-muted rounded mb-1"></div>
-            <div className="h-3 w-16 bg-muted rounded"></div>
-          </div>
-          <div className="h-10 w-10 bg-muted rounded-full"></div>
-          <div className="h-9 w-9 md:h-9 md:w-24 bg-muted rounded-full md:rounded-md"></div>
+        <div className="flex-1 flex justify-center px-8">
+            <div className="h-10 w-full max-w-sm bg-muted rounded-full animate-pulse"></div>
+        </div>
+        <div className="flex items-center gap-4">
+            <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-8 w-8 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-10 w-10 bg-muted rounded-full animate-pulse"></div>
+            <div className="h-9 w-24 bg-muted rounded-md animate-pulse"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-between p-4">
-      {/* SEARCH BAR */}
-       <div
-        className="hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-border px-2"
-      >
-        <Image src="/search.png" alt="recherche" width={14} height={14} className="opacity-50" />
-        <input
-          type="text"
-          placeholder="Rechercher..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-[200px] p-2 bg-transparent outline-none"
-        />
-      </div>
-      {/* ICONS AND USER */}
-      <div className="flex items-center gap-2 md:gap-4 justify-end w-full">
-        <ThemeToggleButton />
-        
-        <Link href="/fr/list/messages" className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer">
-            <Image src="/mail.png" alt="messages" width={18} height={18} />
-        </Link>
-        
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <button className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer relative">
-                    <Image src="/announcement.png" alt="annonces" width={18} height={18} />
-                    {unreadNotifications > 0 && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px] animate-pulse">
-                            {unreadNotifications}
+    <div className="flex items-center justify-between p-4 border-b bg-background">
+        {/* LEFT SIDE: Menu & Logo */}
+        <div className="flex items-center gap-4">
+            <Sheet>
+                <SheetTrigger asChild>
+                    <Button variant="outline" size="icon">
+                        <MenuIcon className="h-5 w-5" />
+                        <span className="sr-only">Ouvrir le menu</span>
+                    </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-[280px]">
+                    <div className="h-full bg-sidebar text-sidebar-foreground flex flex-col">
+                        <div className="p-4 border-b border-sidebar-border">
+                            <Link
+                                href={rolePath ? `/${locale}/${rolePath}` : `/${locale}`}
+                                className="flex items-center gap-2 flex-shrink-0"
+                            >
+                                <Image src="/logo.png" alt="logo" width={32} height={32} data-ai-hint="logo company" priority />
+                                <span className="font-bold text-lg text-sidebar-primary-foreground">SchooLama</span>
+                            </Link>
                         </div>
-                    )}
-                </button>
-            </DropdownMenuTrigger>
-            <NotificationDropdown />
-        </DropdownMenu>
+                        <div className="flex-grow overflow-y-auto">
+                            <Menu />
+                        </div>
+                    </div>
+                </SheetContent>
+            </Sheet>
+            
+            <Link href={rolePath ? `/${locale}/${rolePath}` : `/${locale}`} className="hidden md:flex items-center gap-2 flex-shrink-0">
+                <Image src="/logo.png" alt="logo" width={32} height={32} data-ai-hint="logo company" priority />
+                <span className="font-bold text-lg text-primary">SchooLama</span>
+            </Link>
+        </div>
 
-        {currentUser ? (
-          <>
-            <div className="flex flex-col text-right">
-              <span className="text-sm font-semibold">{currentUser.name || currentUser.email}</span>
-              <span className="text-xs text-muted-foreground capitalize">
-                {currentUser.role.toLowerCase()}
-              </span>
-            </div>
-             <div className="relative h-10 w-10">
-                <Image
-                    src={currentUser.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
-                    alt="Photo de profil"
-                    fill
-                    sizes="40px"
-                    className="rounded-full object-cover"
+        {/* CENTER: Search Bar */}
+        <div className="flex-1 flex justify-center px-8">
+             <div className="w-full max-w-sm hidden md:flex items-center gap-2 text-xs rounded-full ring-[1.5px] ring-border px-2">
+                <Image src="/search.png" alt="recherche" width={14} height={14} className="opacity-50" />
+                <input
+                  type="text"
+                  placeholder="Rechercher sur toute la plateforme..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full p-2 bg-transparent outline-none"
                 />
             </div>
-            <AppHeaderLogoutButton /> 
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground">Non connecté</span>
-        )}
-      </div>
+        </div>
+
+        {/* RIGHT SIDE: Actions & User */}
+        <div className="flex items-center gap-2 md:gap-4">
+            <ThemeToggleButton />
+            
+            <Link href="/fr/list/messages" className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer">
+                <Image src="/mail.png" alt="messages" width={18} height={18} />
+            </Link>
+            
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <button className="bg-card border rounded-full w-8 h-8 flex items-center justify-center cursor-pointer relative">
+                        <Image src="/announcement.png" alt="annonces" width={18} height={18} />
+                        {unreadNotifications > 0 && (
+                            <div className="absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center bg-primary text-primary-foreground rounded-full text-[10px] animate-pulse">
+                                {unreadNotifications}
+                            </div>
+                        )}
+                    </button>
+                </DropdownMenuTrigger>
+                <NotificationDropdown />
+            </DropdownMenu>
+
+            {currentUser ? (
+                <>
+                    <div className="hidden sm:flex flex-col text-right">
+                        <span className="text-sm font-semibold">{currentUser.name || currentUser.email}</span>
+                        <span className="text-xs text-muted-foreground capitalize">
+                            {currentUser.role.toLowerCase()}
+                        </span>
+                    </div>
+                    <div className="relative h-10 w-10">
+                        <Image
+                            src={currentUser.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.email}`}
+                            alt="Photo de profil"
+                            fill
+                            sizes="40px"
+                            className="rounded-full object-cover"
+                        />
+                    </div>
+                    <AppHeaderLogoutButton /> 
+                </>
+            ) : (
+                <span className="text-xs text-muted-foreground">Non connecté</span>
+            )}
+        </div>
     </div>
   );
 };

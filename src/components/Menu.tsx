@@ -1,9 +1,13 @@
 // src/components/Menu.tsx
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { getServerSession } from "@/lib/auth-utils";
+import { useSelector } from "react-redux";
+import { selectCurrentUser } from "@/lib/redux/slices/authSlice";
 import { Role } from "@/types/index";
-import { BarChart3 } from 'lucide-react'; // Utiliser une icône pour les rapports
+import type { SafeUser } from "@/types";
+import { BarChart3 } from 'lucide-react';
 
 const menuItems: Array<{
   title: string;
@@ -140,25 +144,25 @@ const menuItems: Array<{
   },
 ];
 
-const Menu = async () => {
-  const session = await getServerSession();
-  const userRole = session?.role as Role | undefined; 
-  const locale = 'fr'; // Locale fixée à 'fr'
+
+const Menu = () => {
+  const currentUser: SafeUser | null = useSelector(selectCurrentUser);
+  const userRole = currentUser?.role;
+  const locale = 'fr';
 
   if (!userRole) {
-    return null; 
+    return null;
   }
 
   return (
-    <div className="mt-4 text-sm">
+    <div className="mt-4 text-sm px-2">
       {menuItems.map((group) => (
-        <div className="flex flex-col gap-2" key={group.title}>
-          <span className="hidden lg:block text-sidebar-foreground/70 font-light my-4">
+        <div className="flex flex-col gap-1" key={group.title}>
+          <span className="text-sidebar-foreground/70 font-light my-2 px-2 text-xs">
             {group.title}
           </span>
           {group.items.map((item) => {
             if (item.visible.includes(userRole)) {
-              // Construct the href with the resolved locale
               const baseHref = item.href === "/" && userRole ? `/${userRole.toLowerCase()}` : item.href;
               const finalHref = `/${locale}${baseHref.startsWith('/') ? '' : '/'}${baseHref}`;
               
@@ -166,10 +170,10 @@ const Menu = async () => {
                 <Link
                   href={finalHref} 
                   key={item.label}
-                  className="glow-on-hover flex items-center justify-center lg:justify-start gap-4 py-3 md:px-2"
+                  className="flex items-center gap-4 py-2.5 px-3 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
                 >
                   <Image src={item.icon} alt={item.label} width={20} height={20} />
-                  <span className="hidden lg:block">{item.label}</span>
+                  <span>{item.label}</span>
                 </Link>
               );
             }
