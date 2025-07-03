@@ -1,17 +1,13 @@
-
 // src/app/[locale]/(dashboard)/list/chatroom/dashboard/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { LogOut, Video, Users, BarChart3, MessageCircle, Loader2 } from 'lucide-react';
+import { LogOut, BarChart3, MessageCircle, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from "@/hooks/redux-hooks";
 import { useLogoutMutation } from "@/lib/redux/api/authApi";
-import { setSelectedClass, startSession, fetchChatroomClasses, type SessionParticipant, type ClassRoom } from "@/lib/redux/slices/sessionSlice";
-import { addNotification } from "@/lib/redux/slices/notificationSlice";
+import { setSelectedClass, fetchChatroomClasses, type ClassRoom } from "@/lib/redux/slices/sessionSlice";
 import ClassCard from '@/components/chatroom/dashboard/ClassCard';
 import StudentSelector from '@/components/chatroom/dashboard/StudentSelector';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
@@ -26,7 +22,7 @@ export default function DashboardPage() {
   const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
   const { toast } = useToast();
 
-  const { classes, selectedClass, selectedStudents, activeSession, loading } = useAppSelector(state => state.session);
+  const { classes, selectedClass, activeSession, loading } = useAppSelector(state => state.session);
 
   useEffect(() => {
     if (!user || user.role !== Role.TEACHER) {
@@ -40,8 +36,10 @@ export default function DashboardPage() {
   }, [user, activeSession, router]);
 
   useEffect(() => {
-    dispatch(fetchChatroomClasses());
-  }, [dispatch]);
+    if (classes.length === 0 && !loading) {
+        dispatch(fetchChatroomClasses());
+    }
+  }, [dispatch, classes.length, loading]);
   
   const handleLogout = async () => {
     try {
@@ -58,26 +56,7 @@ export default function DashboardPage() {
     dispatch(setSelectedClass(classroom));
   };
 
-  const handleStartSession = () => {
-    if (!selectedClass || selectedStudents.length === 0) {
-      return;
-    }
-
-    dispatch(startSession({
-      classId: String(selectedClass.id),
-      className: selectedClass.name,
-    }));
-
-    dispatch(addNotification({
-      type: 'session_started',
-      title: 'Session démarrée',
-      message: `La session ${selectedClass.name} a commencé avec ${selectedStudents.length} élève(s)`,
-    }));
-
-    router.replace('/fr/list/chatroom/session');
-  };
-
-  if (loading || !user) {
+  if ((loading && classes.length === 0) || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Spinner size="lg" />
@@ -88,7 +67,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header - Always shown */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <img
@@ -134,62 +113,27 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-
-        {loading && (
-          <div className="flex justify-center items-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          </div>
-        )}
-
-        {/* Classes Grid */}
-        {!loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-            {classes.map((classroom) => (
-              <ClassCard
-                key={classroom.id}
-                classroom={classroom}
-                isSelected={selectedClass?.id === classroom.id}
-                onSelect={handleClassSelect}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Student Selection */}
-        {selectedClass && (
-          <Card className="mb-8">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Sélection des élèves - {selectedClass.name}
-                  </CardTitle>
-                  <CardDescription>
-                    Choisissez les élèves qui participeront à la session
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">
-                  {selectedStudents.length} sélectionné(s)
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <StudentSelector classroom={selectedClass} />
-              
-              {selectedStudents.length > 0 && (
-                <div className="mt-6 pt-6 border-t">
-                  <Button
-                    onClick={handleStartSession}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 flex items-center gap-2 py-6 text-lg font-medium"
-                  >
-                    <Video className="w-5 h-5" />
-                    Démarrer la session ({selectedStudents.length} élève{selectedStudents.length > 1 ? 's' : ''})
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        
+        {/* Conditional View: Class Grid or Student Selector */}
+        {selectedClass ? (
+          <StudentSelector classroom={selectedClass} />
+        ) : (
+          loading ? (
+            <div className="flex justify-center items-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {classes.map((classroom) => (
+                <ClassCard
+                  key={classroom.id}
+                  classroom={classroom}
+                  isSelected={false} // isSelected is always false when showing the grid
+                  onSelect={handleClassSelect}
+                />
+              ))}
+            </div>
+          )
         )}
       </div>
     </div>
