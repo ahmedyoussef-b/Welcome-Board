@@ -145,7 +145,7 @@ const AnnouncementForm = ({
           name="title"
           register={register}
           error={errors?.title}
-          inputProps={{disabled: isLoading, className: "md:w-full"}}
+          inputProps={{disabled: isLoading}}
         />
         <input type="hidden" {...register("description")} />
         
@@ -214,7 +214,7 @@ const AnnouncementForm = ({
           {errors.description && <p className="text-xs text-destructive mt-1">{errors.description.message?.toString()}</p>}
         </div>
       </div>
-      <div className="flex justify-between flex-wrap gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InputField
           label="Date de publication"
           name="date"
@@ -223,7 +223,7 @@ const AnnouncementForm = ({
           error={errors?.date}
           inputProps={{disabled: isLoading}}
         />
-        <div className="flex flex-col gap-2 w-full md:w-1/4 flex-grow">
+        <div className="flex flex-col gap-2 w-full">
           <Label>Classe (Optionnel)</Label>
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:opacity-50"

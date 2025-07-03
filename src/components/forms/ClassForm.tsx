@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -79,7 +78,7 @@ const ClassForm = ({
         {type === "create" ? "Créer une Nouvelle Classe" : "Mettre à jour la Classe"}
       </h1>
 
-      <div className="flex justify-between flex-wrap gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InputField
           label="Nom de la Classe"
           name="name"
@@ -95,7 +94,7 @@ const ClassForm = ({
           error={errors?.capacity}
           inputProps={{disabled: isLoading}}
         />
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
+        <div className="flex flex-col gap-2 w-full">
           <label className="text-xs text-gray-500">Superviseur (Optionnel)</label>
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:opacity-50"
@@ -115,7 +114,7 @@ const ClassForm = ({
             </p>
           )}
         </div>
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
+        <div className="flex flex-col gap-2 w-full">
           <label className="text-xs text-gray-500">Niveau</label>
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:opacity-50"
@@ -149,5 +148,3 @@ const ClassForm = ({
 };
 
 export default ClassForm;
-
-    

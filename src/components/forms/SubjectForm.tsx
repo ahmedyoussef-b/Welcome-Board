@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -83,7 +82,7 @@ const SubjectForm = ({
         {type === "create" ? "Créer une Nouvelle Matière" : "Mettre à jour la Matière"}
       </h1>
 
-      <div className="flex justify-between flex-wrap gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InputField
           label="Nom de la Matière"
           name="name"
@@ -91,7 +90,7 @@ const SubjectForm = ({
           error={errors?.name}
           inputProps={{disabled: isLoading}}
         />
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
+        <div className="flex flex-col gap-2 w-full">
           <label className="text-xs text-gray-500">Enseignants</label>
           <select
             multiple

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -80,7 +79,7 @@ const AssignmentForm = ({
         {type === "create" ? "Créer un Nouveau Devoir" : "Mettre à jour le Devoir"}
       </h1>
 
-      <div className="flex justify-between flex-wrap gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <InputField
           label="Titre du Devoir"
           name="title"
@@ -104,7 +103,7 @@ const AssignmentForm = ({
           error={errors?.dueDate}
           inputProps={{disabled: isLoading}}
         />
-        <div className="flex flex-col gap-2 w-full md:w-1/4">
+        <div className="flex flex-col gap-2 w-full">
           <label className="text-xs text-gray-500">Cours</label>
           <select
             className="ring-[1.5px] ring-gray-300 p-2 rounded-md text-sm w-full disabled:opacity-50"
