@@ -128,7 +128,7 @@ function main() {
         const coreSubjects = subjects.filter(s => !['EDUCATION SPORTIVE', 'MUSIQUE', 'ART'].includes(s.name));
         for (const subject of coreSubjects) {
             for (let i = 1; i <= 3; i++) {
-                const sanitizedSubjectName = subject.name.substring(0, 4).toLowerCase().replace(/\s+/g, '');
+                const sanitizedSubjectName = subject.name.toLowerCase().replace(/[^a-z0-9]/g, '');
                 const username = `prof.${sanitizedSubjectName}${i}`;
                 const user = yield prisma.user.create({ data: { email: `${username}@example.com`, username: username, password: hashedPassword, role: client_1.Role.TEACHER, name: `Prof ${subject.name} ${i}`, active: true } });
                 createdTeachers.push(yield prisma.teacher.create({ data: { userId: user.id, name: 'Professeur', surname: `${subject.name} ${i}`, sex: i % 2 === 0 ? client_1.UserSex.FEMALE : client_1.UserSex.MALE, birthday: new Date(), bloodType: 'O-', subjects: { connect: { id: subject.id } } } }));
