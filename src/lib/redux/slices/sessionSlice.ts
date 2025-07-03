@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
-import { arrayMove } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 
 export interface Badge {
   id: string;
@@ -117,6 +117,20 @@ export interface ActiveSession {
   } | null;
 }
 
+export interface ChatMessage {
+    id: string;
+    userId: string;
+    userName: string;
+    userAvatar?: string | null;
+    message?: string;
+    timestamp: string;
+    userRole: 'admin' | 'teacher' | 'student';
+    documentUrl?: string;
+    documentType?: 'image' | 'pdf' | 'other';
+    documentName?: string;
+}
+
+
 interface SessionState {
   classes: ClassRoom[];
   selectedClass: ClassRoom | null;
@@ -126,16 +140,6 @@ interface SessionState {
   activeSession: ActiveSession | null;
   loading: boolean;
   chatMessages: ChatMessage[];
-}
-
-export interface ChatMessage {
-    id: string;
-    userId: string;
-    userName: string;
-    userAvatar?: string;
-    message: string;
-    timestamp: string;
-    userRole: 'admin' | 'teacher' | 'student';
 }
 
 const initialState: SessionState = {
@@ -240,6 +244,7 @@ const sessionSlice = createSlice({
         rewardActions: [],
         classTimer: null,
       };
+      state.chatMessages = []; // Clear chat on new session
     },
     startMeeting: (state, action: PayloadAction<{ meetingTitle: string; participants: SessionParticipant[] }>) => {
         const { meetingTitle, participants } = action.payload;
@@ -257,6 +262,7 @@ const sessionSlice = createSlice({
             rewardActions: [],
             classTimer: null,
         };
+        state.chatMessages = []; // Clear chat on new session
     },
     moveParticipant: (state, action: PayloadAction<{ fromIndex: number; toIndex: number }>) => {
         if (state.activeSession) {
@@ -605,8 +611,25 @@ const sessionSlice = createSlice({
         }
       }
     },
-    sendMessage: (state, action: PayloadAction<ChatMessage>) => {
-        state.chatMessages.push(action.payload);
+    sendMessage: (state, action: PayloadAction<Omit<ChatMessage, 'id' | 'timestamp'>>) => {
+        if (state.activeSession) {
+            const message: ChatMessage = {
+                ...action.payload,
+                id: `msg_${Date.now()}`,
+                timestamp: new Date().toISOString(),
+            };
+            state.chatMessages.push(message);
+        }
+    },
+    shareDocument: (state, action: PayloadAction<Omit<ChatMessage, 'id' | 'timestamp'>>) => {
+        if (state.activeSession) {
+            const documentMessage: ChatMessage = {
+                ...action.payload,
+                id: `doc_${Date.now()}`,
+                timestamp: new Date().toISOString(),
+            };
+            state.chatMessages.push(documentMessage);
+        }
     },
     clearChatMessages: (state) => {
         state.chatMessages = [];
@@ -698,6 +721,7 @@ export const {
   awardReward,
   awardParticipationPoints,
   sendMessage,
+  shareDocument,
   clearChatMessages,
   setTimer,
   toggleTimer,

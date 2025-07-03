@@ -4,9 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Video, Settings, LogOut, MessageSquare, BarChart3, Brain, Trophy } from 'lucide-react';
+import { Video, LogOut } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { endSession, updateStudentPresence, tickTimer } from '@/lib/redux/slices/sessionSlice';
 import { addNotification } from '@/lib/redux/slices/notificationSlice';
@@ -14,20 +12,18 @@ import { addSessionReport, type SessionReport } from '@/lib/redux/slices/reportS
 import TimerDisplay from './TimerDisplay';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 
-// Import newly created components
+// Import session components
 import OverviewTab from './tabs/OverviewTab';
-import InteractionsTab from './tabs/InteractionsTab';
-import ActivitiesTab from './tabs/ActivitiesTab';
-import QuizzesTab from './tabs/QuizzesTab';
-import RewardsTab from './tabs/RewardsTab';
 import SessionSidebar from './SessionSidebar';
+import ChatPanel from './ChatPanel';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 export default function SessionRoom() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const { activeSession } = useAppSelector(state => state.session);
   const user = useAppSelector(selectCurrentUser);
-  const [selectedTab, setSelectedTab] = useState('overview');
 
   // Simulate student presence updates
   useEffect(() => {
@@ -35,12 +31,12 @@ export default function SessionRoom() {
 
     const interval = setInterval(() => {
       activeSession.participants.forEach(participant => {
-        if (participant.role === 'admin') return; // Don't simulate admin presence
-        const shouldUpdate = Math.random() < 0.1; // 10% chance per interval
+        if (participant.role === 'admin') return; 
+        const shouldUpdate = Math.random() < 0.1;
         if (shouldUpdate) {
           dispatch(updateStudentPresence({
             studentId: participant.id,
-            isOnline: Math.random() > 0.2, // 80% chance to be online
+            isOnline: Math.random() > 0.2,
           }));
         }
       });
@@ -103,7 +99,6 @@ export default function SessionRoom() {
       message: 'La session a été fermée et le rapport a été généré.',
     }));
 
-    // Redirect to the initial configuration page
     if (user.role === 'TEACHER') {
         router.replace('/fr/list/chatroom/dashboard');
     } else if (user.role === 'ADMIN') {
@@ -111,13 +106,9 @@ export default function SessionRoom() {
     }
   };
 
-  if (!activeSession) {
-    // This case is handled by the parent page component, but it's good practice to have a fallback.
+  if (!activeSession || !user) {
     return <div>Chargement de la session...</div>;
   }
-
-  const onlineCount = activeSession.participants.filter(p => p.isOnline).length;
-  const totalCount = activeSession.participants.length;
 
   const isHost = 
     (user?.role === 'TEACHER' && activeSession.sessionType === 'class') ||
@@ -132,115 +123,36 @@ export default function SessionRoom() {
   const currentUserParticipant = activeSession.participants.find(p => p.id === user?.id);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-col h-screen">
-        <div className="bg-white border-b sticky top-0 z-40 shadow-sm">
-          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between h-16">
-              <div className="flex items-center gap-4">
-                <div>
-                  <h1 className="text-xl font-semibold">{activeSession.className}</h1>
-                  <p className="text-sm text-gray-500">
-                    Démarrée à {new Date(activeSession.startTime).toLocaleTimeString('fr-FR', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </p>
+    <div className="h-screen flex flex-col">
+      <div className="flex-1 flex overflow-hidden">
+          <main className="flex-1 flex flex-col gap-4 p-4 overflow-hidden">
+              <div className="flex-shrink-0">
+                   <OverviewTab activeSession={activeSession} user={user} />
+              </div>
+              <div className="flex-1 min-h-0">
+                  <ChatPanel user={user} isHost={isHost} />
+              </div>
+          </main>
+          
+          <aside className="w-[400px] border-l bg-background p-4 flex flex-col gap-4">
+             <div className="flex-shrink-0 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Video className="w-5 h-5 text-primary" />
+                    <h2 className="font-semibold">{activeSession.className}</h2>
+                    <TimerDisplay />
                 </div>
-                <Badge variant="outline" className="flex items-center gap-1">
-                  <Users className="w-3 h-3" />
-                  {onlineCount}/{totalCount} en ligne
-                </Badge>
-                <TimerDisplay />
-              </div>
-              
-              <div className="flex items-center gap-4">
-                  <TabsList>
-                      <TabsTrigger value="overview" className="flex items-center gap-2">
-                      <Video className="w-4 h-4" />
-                      Participants
-                      </TabsTrigger>
-                      <TabsTrigger value="interactions" className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4" />
-                      Interactions
-                      </TabsTrigger>
-                      <TabsTrigger value="activities" className="flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4" />
-                      Activités
-                      </TabsTrigger>
-                      {activeSession.sessionType === 'class' && (
-                          <>
-                              <TabsTrigger value="quizzes" className="flex items-center gap-2">
-                                  <Brain className="w-4 h-4" />
-                                  Quiz
-                              </TabsTrigger>
-                              <TabsTrigger value="rewards" className="flex items-center gap-2">
-                                  <Trophy className="w-4 h-4" />
-                                  Récompenses
-                              </TabsTrigger>
-                          </>
-                      )}
-                  </TabsList>
-              </div>
-
-
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm">
-                  <Settings className="w-4 h-4" />
-                </Button>
                 {isHost && (
-                  <Button 
-                    variant="destructive" 
-                    size="sm" 
-                    onClick={handleEndSession}
-                  >
-                    <LogOut className="w-4 h-4 mr-1" />
-                    Terminer
-                  </Button>
+                    <Button size="sm" variant="destructive" onClick={handleEndSession}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Terminer
+                    </Button>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="flex-grow overflow-y-auto">
-            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                    <div className="lg:col-span-3">
-                        <TabsContent value="overview" className="mt-0">
-                        <OverviewTab activeSession={activeSession} user={user} />
-                        </TabsContent>
-                        
-                        <TabsContent value="interactions" className="mt-0">
-                        <InteractionsTab isHost={isHost} user={user} />
-                        </TabsContent>
-                        
-                        <TabsContent value="activities" className="mt-0">
-                        <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-                        </TabsContent>
-
-                        {activeSession.sessionType === 'class' && (
-                            <>
-                            <TabsContent value="quizzes" className="mt-0">
-                                <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-                            </TabsContent>
-                            <TabsContent value="rewards" className="mt-0">
-                                <RewardsTab isHost={isHost} />
-                            </TabsContent>
-                            </>
-                        )}
-                    </div>
-                    
-                    <SessionSidebar 
-                    isHost={isHost} 
-                    currentUserParticipant={currentUserParticipant}
-                    activeSession={activeSession}
-                    user={user}
-                    />
-                </div>
-            </div>
-        </div>
-      </Tabs>
+             </div>
+             <ScrollArea className="flex-1">
+                <SessionSidebar isHost={isHost} user={user} />
+             </ScrollArea>
+          </aside>
+      </div>
     </div>
   );
 }
