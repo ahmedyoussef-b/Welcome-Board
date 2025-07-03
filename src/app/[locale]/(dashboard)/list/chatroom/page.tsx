@@ -1,4 +1,4 @@
-
+// src/app/[locale]/(dashboard)/list/chatroom/page.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -22,7 +22,7 @@ export default function ChatroomIndexPage() {
         } else if (user.role === Role.STUDENT) {
           router.replace('/fr/list/chatroom/student');
         } else if (user.role === Role.ADMIN) {
-          router.replace('/fr/list/chatroom/chat/admin');
+          router.replace('/fr/admin/chatroom');
         } else {
           router.replace(`/fr/${user.role.toLowerCase()}`);
         }

@@ -1,6 +1,6 @@
 // src/components/dashboard/admin/AdminActionCards.tsx
 import Link from "next/link";
-import { Wand2, BarChart3 } from "lucide-react";
+import { Wand2, Presentation } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Role as AppRole } from "@/types";
 
@@ -13,10 +13,10 @@ const adminSections = [
     visible: [AppRole.ADMIN]
   },
   { 
-    title: "Rapports & Statistiques", 
-    href: "/admin/reports", 
-    icon: BarChart3, 
-    description: "Consulter les rapports détaillés des sessions de chatroom et autres analyses.",
+    title: "Tableau de Bord Chatroom", 
+    href: "/admin/chatroom", 
+    icon: Presentation, 
+    description: "Consulter les statistiques d'utilisation de la Chatroom et lancer des réunions.",
     visible: [AppRole.ADMIN]
   },
 ];
