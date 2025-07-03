@@ -1,3 +1,4 @@
+
 // src/components/chatroom/session/SessionRoom.tsx
 'use client';
 
@@ -6,9 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Video, LogOut } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { endSession, updateStudentPresence, tickTimer } from '@/lib/redux/slices/sessionSlice';
-import { addNotification } from '@/lib/redux/slices/notificationSlice';
-import { addSessionReport, type SessionReport } from '@/lib/redux/slices/reportSlice';
+import { updateStudentPresence, tickTimer } from '@/lib/redux/slices/sessionSlice';
 import TimerDisplay from './TimerDisplay';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 
@@ -19,9 +18,12 @@ import ChatPanel from './ChatPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 
-export default function SessionRoom() {
+interface SessionRoomProps {
+    onEndSession: () => void;
+}
+
+export default function SessionRoom({ onEndSession }: SessionRoomProps) {
   const dispatch = useAppDispatch();
-  const router = useRouter();
   const { activeSession } = useAppSelector(state => state.session);
   const user = useAppSelector(selectCurrentUser);
 
@@ -57,55 +59,7 @@ export default function SessionRoom() {
 
     return () => clearInterval(interval);
   }, [activeSession?.classTimer?.isActive, activeSession?.classTimer?.remaining, dispatch]);
-
-  const handleEndSession = () => {
-    if (!activeSession || !user) return;
-
-    const endTime = new Date();
-    const sessionDuration = (endTime.getTime() - new Date(activeSession.startTime).getTime()) / 1000;
-
-    if (activeSession.sessionType === 'class') {
-        const report: SessionReport = {
-          id: activeSession.id,
-          classId: activeSession.classId,
-          className: activeSession.className,
-          teacherId: user.id,
-          teacherName: user.name || user.email,
-          startTime: activeSession.startTime,
-          endTime: endTime.toISOString(),
-          duration: Math.round(sessionDuration),
-          participants: activeSession.participants.map(p => {
-            const joinTime = new Date(activeSession.startTime); 
-            const participantDuration = (endTime.getTime() - joinTime.getTime()) / 1000;
-            return {
-              id: p.id,
-              name: p.name,
-              email: p.email,
-              joinTime: activeSession.startTime,
-              leaveTime: endTime.toISOString(),
-              duration: Math.round(participantDuration),
-            };
-          }),
-          maxParticipants: activeSession.participants.length,
-          status: 'completed',
-        };
-        dispatch(addSessionReport(report));
-    }
-    
-    dispatch(endSession());
-    dispatch(addNotification({
-      type: 'session_ended',
-      title: 'Session terminée',
-      message: 'La session a été fermée et le rapport a été généré.',
-    }));
-
-    if (user.role === 'TEACHER') {
-        router.replace('/fr/list/chatroom/dashboard');
-    } else if (user.role === 'ADMIN') {
-        router.replace('/fr/list/chatroom/chat/admin');
-    }
-  };
-
+  
   if (!activeSession || !user) {
     return <div>Chargement de la session...</div>;
   }
@@ -119,8 +73,6 @@ export default function SessionRoom() {
   if (!isHost && !isParticipant) {
       return <div>Accès non autorisé à cette session.</div>
   }
-
-  const currentUserParticipant = activeSession.participants.find(p => p.id === user?.id);
 
   return (
     <div className="h-screen flex flex-col">
@@ -142,7 +94,7 @@ export default function SessionRoom() {
                     <TimerDisplay />
                 </div>
                 {isHost && (
-                    <Button size="sm" variant="destructive" onClick={handleEndSession}>
+                    <Button size="sm" variant="destructive" onClick={onEndSession}>
                         <LogOut className="w-4 h-4 mr-2" />
                         Terminer
                     </Button>
