@@ -4,12 +4,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { LogOut, BarChart3, MessageCircle, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from "@/hooks/redux-hooks";
-import { useLogoutMutation } from "@/lib/redux/api/authApi";
-import { setSelectedClass, fetchChatroomClasses, type ClassRoom } from "@/lib/redux/slices/sessionSlice";
+import { setSelectedClass, fetchChatroomClasses, type ClassRoom, startSession } from "@/lib/redux/slices/sessionSlice";
 import ClassCard from '@/components/chatroom/dashboard/ClassCard';
 import StudentSelector from '@/components/chatroom/dashboard/StudentSelector';
 import TemplateSelector from '@/components/chatroom/dashboard/TemplateSelector';
@@ -17,15 +14,16 @@ import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { Role } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Loader2, Video } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectCurrentUser);
-  const [logout, { isLoading: isLoggingOut }] = useLogoutMutation();
   const { toast } = useToast();
 
-  const { classes, selectedClass, activeSession, loading } = useAppSelector(state => state.session);
+  const { classes, selectedClass, activeSession, loading, selectedStudents } = useAppSelector(state => state.session);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -35,7 +33,7 @@ export default function DashboardPage() {
     }
 
     if (activeSession) {
-      router.replace('/fr/list/chatroom/session');
+      router.replace(`/fr/list/chatroom/session?sessionId=${activeSession.id}`);
     }
   }, [user, activeSession, router]);
 
@@ -45,22 +43,38 @@ export default function DashboardPage() {
     }
   }, [dispatch, classes.length, loading]);
   
-  const handleLogout = async () => {
-    try {
-      await logout().unwrap();
-      toast({ title: "Déconnexion réussie" });
-      router.push('/fr');
-    } catch {
-      toast({ variant: "destructive", title: "Échec de la déconnexion" });
-      router.push('/fr');
-    }
-  };
-
   const handleClassSelect = (classroom: ClassRoom) => {
     if (selectedClass?.id === classroom.id) {
         dispatch(setSelectedClass(null));
     } else {
         dispatch(setSelectedClass(classroom));
+    }
+  };
+
+  const handleStartSession = async () => {
+    if (!selectedClass || selectedStudents.length === 0) return;
+    
+    try {
+      const resultAction = await dispatch(startSession({
+        classId: String(selectedClass.id),
+        className: selectedClass.name,
+        participantIds: selectedStudents,
+        templateId: selectedTemplateId || undefined,
+      }));
+
+      if (startSession.fulfilled.match(resultAction)) {
+        const newSession = resultAction.payload;
+        toast({ title: 'Session Démarrée', description: `La session pour ${selectedClass.name} a commencé.`});
+        router.push(`/fr/list/chatroom/session?sessionId=${newSession.id}`);
+      } else {
+        throw new Error((resultAction.payload as string) || 'Failed to start session');
+      }
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: error.message || "Impossible de démarrer la session."
+        });
     }
   };
 
@@ -72,56 +86,51 @@ export default function DashboardPage() {
     );
   }
 
+  // View for selecting students, after a class has been chosen
+  if (selectedClass) {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 lg:p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+            <Card className="shadow-lg animate-in fade-in-0">
+             <CardHeader>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle>Étape 3: Sélectionner les élèves pour {selectedClass.name}</CardTitle>
+                        <CardDescription>Cochez les élèves que vous souhaitez inviter à la session interactive.</CardDescription>
+                    </div>
+                    <Button variant="outline" onClick={() => dispatch(setSelectedClass(null))}>
+                        <ArrowLeft className="mr-2 h-4 w-4"/>
+                        Changer de classe
+                    </Button>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <StudentSelector 
+                classroom={selectedClass}
+              />
+            </CardContent>
+            <CardContent>
+               <div className="mt-6 pt-6 border-t">
+                  <Button
+                    onClick={handleStartSession}
+                    disabled={selectedStudents.length === 0 || loading}
+                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-300 disabled:to-gray-400 py-6 text-lg font-medium"
+                  >
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="w-5 h-5 mr-2" />}
+                    {loading ? 'Démarrage...' : `Lancer la session (${selectedStudents.length} élève${selectedStudents.length > 1 ? 's' : ''})`}
+                  </Button>
+                </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  // Main view for selecting a template and a class
   return (
     <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <img
-              src={user.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
-              alt={user.name || ''}
-              className="w-12 h-12 rounded-full"
-            />
-            <div>
-              <h1 className="text-2xl font-bold">
-                Bonjour, {user.name}
-              </h1>
-              <p className="text-muted-foreground">Tableau de bord professeur</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => router.push('/fr/list/chatroom/chat/teachers')}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <MessageCircle className="w-4 h-4" />
-              Chat Professeurs
-            </Button>
-
-            <Button
-              onClick={() => router.push('/fr/list/chatroom/reports')}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Rapports
-            </Button>
-            
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="flex items-center gap-2"
-              disabled={isLoggingOut}
-            >
-              {isLoggingOut ? <Spinner size="sm" className="mr-2" /> : <LogOut className="w-4 h-4" />}
-              {isLoggingOut ? "Déconnexion..." : "Se déconnecter"}
-            </Button>
-          </div>
-        </div>
-
         {/* Step 1: Template Selection */}
         <TemplateSelector 
             selectedTemplateId={selectedTemplateId} 
@@ -145,7 +154,6 @@ export default function DashboardPage() {
                   <ClassCard
                     key={classroom.id}
                     classroom={classroom}
-                    isSelected={selectedClass?.id === classroom.id}
                     onSelect={handleClassSelect}
                   />
                 ))}
@@ -153,22 +161,6 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Step 3: Student Selector Card (visible only when a class is selected) */}
-        {selectedClass && (
-          <Card className="shadow-lg animate-in fade-in-0">
-             <CardHeader>
-              <CardTitle>Étape 3: Sélectionner les élèves</CardTitle>
-              <CardDescription>Cochez les élèves que vous souhaitez inviter à la session interactive.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <StudentSelector 
-                classroom={selectedClass}
-                templateId={selectedTemplateId}
-              />
-            </CardContent>
-          </Card>
-        )}
       </div>
     </div>
   );
