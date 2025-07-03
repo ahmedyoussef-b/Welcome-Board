@@ -40,7 +40,7 @@ export default function SessionSidebar({ isHost, currentUserParticipant, activeS
             <CardTitle className="text-base">Actions rapides</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <RaiseHandButton studentId={user.id} studentName={user.name || ''} />
+            <RaiseHandButton />
           </CardContent>
         </Card>
       )}

@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { arrayMove } from '@dnd-kit/core';
 
 export interface Badge {
   id: string;
@@ -256,6 +257,12 @@ const sessionSlice = createSlice({
             rewardActions: [],
             classTimer: null,
         };
+    },
+    moveParticipant: (state, action: PayloadAction<{ fromIndex: number; toIndex: number }>) => {
+        if (state.activeSession) {
+            const { fromIndex, toIndex } = action.payload;
+            state.activeSession.participants = arrayMove(state.activeSession.participants, fromIndex, toIndex);
+        }
     },
     removeStudentFromSession: (state, action: PayloadAction<string>) => {
       if (state.activeSession) {
@@ -670,6 +677,7 @@ export const {
   toggleTeacherSelection,
   startSession,
   startMeeting,
+  moveParticipant,
   removeStudentFromSession,
   addStudentToSession,
   raiseHand,
