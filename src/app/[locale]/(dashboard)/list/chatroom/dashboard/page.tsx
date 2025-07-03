@@ -2,7 +2,7 @@
 // src/app/[locale]/(dashboard)/list/chatroom/dashboard/page.tsx
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -12,6 +12,7 @@ import { useLogoutMutation } from "@/lib/redux/api/authApi";
 import { setSelectedClass, fetchChatroomClasses, type ClassRoom } from "@/lib/redux/slices/sessionSlice";
 import ClassCard from '@/components/chatroom/dashboard/ClassCard';
 import StudentSelector from '@/components/chatroom/dashboard/StudentSelector';
+import TemplateSelector from '@/components/chatroom/dashboard/TemplateSelector';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { Role } from '@/types';
 import { Spinner } from '@/components/ui/spinner';
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   const { classes, selectedClass, activeSession, loading } = useAppSelector(state => state.session);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || user.role !== Role.TEACHER) {
@@ -120,10 +122,16 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Step 1: Class Selection Card */}
+        {/* Step 1: Template Selection */}
+        <TemplateSelector 
+            selectedTemplateId={selectedTemplateId} 
+            onSelectTemplate={setSelectedTemplateId} 
+        />
+        
+        {/* Step 2: Class Selection Card */}
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle>Étape 1: Sélectionner une classe</CardTitle>
+            <CardTitle>Étape 2: Sélectionner une classe</CardTitle>
             <CardDescription>Choisissez la classe pour laquelle vous souhaitez démarrer une session.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -146,15 +154,18 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Step 2: Student Selector Card (visible only when a class is selected) */}
+        {/* Step 3: Student Selector Card (visible only when a class is selected) */}
         {selectedClass && (
           <Card className="shadow-lg animate-in fade-in-0">
              <CardHeader>
-              <CardTitle>Étape 2: Sélectionner les élèves</CardTitle>
+              <CardTitle>Étape 3: Sélectionner les élèves</CardTitle>
               <CardDescription>Cochez les élèves que vous souhaitez inviter à la session interactive.</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-              <StudentSelector classroom={selectedClass} />
+              <StudentSelector 
+                classroom={selectedClass}
+                templateId={selectedTemplateId}
+              />
             </CardContent>
           </Card>
         )}

@@ -15,9 +15,10 @@ import { cn } from '@/lib/utils';
 
 interface StudentSelectorProps {
   classroom: ClassRoom;
+  templateId: string | null;
 }
 
-export default function StudentSelector({ classroom }: StudentSelectorProps) {
+export default function StudentSelector({ classroom, templateId }: StudentSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const dispatch = useAppDispatch();
   const { selectedStudents } = useAppSelector(state => state.session);
@@ -37,6 +38,7 @@ export default function StudentSelector({ classroom }: StudentSelectorProps) {
     dispatch(startSession({
       classId: String(classroom.id),
       className: classroom.name,
+      templateId: templateId || undefined,
     }));
     
     console.log('Notifications envoyées aux élèves:', selectedStudents);

@@ -1,3 +1,4 @@
+
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { arrayMove } from '@dnd-kit/sortable';
 
@@ -130,6 +131,71 @@ export interface ChatMessage {
     documentName?: string;
 }
 
+// NEW: Template Interfaces
+export interface SessionTemplate {
+  id: string;
+  name: string;
+  description: string;
+  quizzes: Omit<Quiz, 'id' | 'startTime' | 'isActive' | 'currentQuestionIndex' | 'answers' | 'timeRemaining'>[];
+  polls: Omit<Poll, 'id' | 'createdAt' | 'isActive' | 'totalVotes' | 'options'> & { options: string[] }[];
+}
+
+// NEW: Mock Data for Templates
+const SESSION_TEMPLATES: SessionTemplate[] = [
+  {
+    id: 'template_math_7',
+    name: 'Révision Maths 7ème',
+    description: 'Un quiz rapide sur les fractions et un sondage sur la géométrie.',
+    quizzes: [
+      {
+        title: 'Quiz sur les Fractions',
+        questions: [
+          {
+            id: 'q1',
+            question: 'Que vaut 1/2 + 1/4 ?',
+            options: ['3/4', '2/6', '1/8', '1/2'],
+            correctAnswer: 0,
+            timeLimit: 30,
+          },
+          {
+            id: 'q2',
+            question: 'Simplifiez 10/20.',
+            options: ['1/2', '2/4', '5/10', 'Toutes ces réponses'],
+            correctAnswer: 3,
+            timeLimit: 20,
+          }
+        ]
+      }
+    ],
+    polls: [
+      {
+        question: 'Quelle est votre figure géométrique préférée ?',
+        options: ['Cercle', 'Carré', 'Triangle', 'Hexagone'],
+      }
+    ]
+  },
+  {
+    id: 'template_hist_8',
+    name: 'Contrôle Histoire 8ème',
+    description: 'Un sondage sur la révolution et un quiz sur les dates clés.',
+    quizzes: [
+       {
+        title: 'Dates Clés',
+        questions: [
+          {
+            id: 'q1',
+            question: 'Année de la chute de Rome ?',
+            options: ['476', '1453', '1789', '1914'],
+            correctAnswer: 0,
+            timeLimit: 25,
+          }
+        ]
+      }
+    ],
+    polls: [],
+  }
+];
+
 
 interface SessionState {
   classes: ClassRoom[];
@@ -216,11 +282,43 @@ const sessionSlice = createSlice({
             state.selectedTeachers.push(teacherId);
         }
     },
-    startSession: (state, action: PayloadAction<{ classId: string; className: string }>) => {
-      const { classId, className } = action.payload;
+    startSession: (state, action: PayloadAction<{ classId: string; className: string; templateId?: string }>) => {
+      const { classId, className, templateId } = action.payload;
       const selectedStudentsData = state.selectedClass?.students.filter(
         student => state.selectedStudents.includes(student.id)
       ) || [];
+      
+      let templatePolls: Poll[] = [];
+      let templateQuizzes: Quiz[] = [];
+      const selectedTemplate = templateId ? SESSION_TEMPLATES.find(t => t.id === templateId) : null;
+
+      if (selectedTemplate) {
+        templatePolls = selectedTemplate.polls.map(p => ({
+          id: `poll_${Date.now()}_${Math.random()}`,
+          question: p.question,
+          options: p.options.map((text, index) => ({
+            id: `option_${index}`,
+            text,
+            votes: [],
+          })),
+          isActive: false, 
+          createdAt: new Date().toISOString(),
+          totalVotes: 0,
+        }));
+        templateQuizzes = selectedTemplate.quizzes.map(q => ({
+          id: `quiz_${Date.now()}_${Math.random()}`,
+          title: q.title,
+          questions: q.questions.map((ques, index) => ({
+            ...ques,
+            id: `question_${index}`
+          })),
+          currentQuestionIndex: 0,
+          isActive: false, 
+          startTime: new Date().toISOString(),
+          answers: [],
+          timeRemaining: q.questions[0]?.timeLimit || 30,
+        }));
+      }
       
       state.activeSession = {
         id: `session_${Date.now()}`,
@@ -237,21 +335,21 @@ const sessionSlice = createSlice({
         startTime: new Date().toISOString(),
         raisedHands: [],
         reactions: [],
-        polls: [],
+        polls: templatePolls,
         activePoll: undefined,
-        quizzes: [],
+        quizzes: templateQuizzes,
         activeQuiz: undefined,
         rewardActions: [],
         classTimer: null,
       };
-      state.chatMessages = []; // Clear chat on new session
+      state.chatMessages = [];
     },
     startMeeting: (state, action: PayloadAction<{ meetingTitle: string; participants: SessionParticipant[] }>) => {
         const { meetingTitle, participants } = action.payload;
         state.activeSession = {
             id: `meeting_${Date.now()}`,
             sessionType: 'meeting',
-            classId: 'admin-meeting', // Generic ID for meetings
+            classId: 'admin-meeting', 
             className: meetingTitle,
             participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [] })),
             startTime: new Date().toISOString(),
@@ -262,7 +360,7 @@ const sessionSlice = createSlice({
             rewardActions: [],
             classTimer: null,
         };
-        state.chatMessages = []; // Clear chat on new session
+        state.chatMessages = [];
     },
     moveParticipant: (state, action: PayloadAction<{ fromIndex: number; toIndex: number }>) => {
         if (state.activeSession) {
