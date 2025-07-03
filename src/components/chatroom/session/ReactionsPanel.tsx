@@ -82,7 +82,7 @@ export default function ReactionsPanel({ studentId, studentName, isTeacher = fal
   }, {} as Record<string, number>);
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-lg">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

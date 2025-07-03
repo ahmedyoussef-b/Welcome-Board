@@ -124,7 +124,7 @@ export default function QuizPanel({ studentId, studentName, isTeacher = false }:
   const currentQuestion = activeQuiz?.questions[activeQuiz.currentQuestionIndex];
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-lg">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

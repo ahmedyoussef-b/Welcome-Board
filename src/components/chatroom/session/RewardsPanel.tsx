@@ -96,7 +96,7 @@ export default function RewardsPanel({ isTeacher = false }: RewardsPanelProps) {
   const recentRewards = activeSession.rewardActions?.slice(0, 5) || [];
 
   return (
-    <Card className="w-full">
+    <Card className="w-full shadow-lg">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

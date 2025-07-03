@@ -22,7 +22,7 @@ export default function SessionSidebar({ isHost, currentUserParticipant, activeS
   return (
     <div className="space-y-4">
       {isHost && (
-        <Card>
+        <Card className="shadow-lg">
           <CardHeader>
               <CardTitle className="text-base">Outils d'animation</CardTitle>
           </CardHeader>
@@ -35,7 +35,7 @@ export default function SessionSidebar({ isHost, currentUserParticipant, activeS
       )}
 
       {currentUserParticipant && currentUserParticipant.role === 'student' && user && (
-        <Card>
+        <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="text-base">Actions rapides</CardTitle>
           </CardHeader>
@@ -45,7 +45,7 @@ export default function SessionSidebar({ isHost, currentUserParticipant, activeS
         </Card>
       )}
 
-      <Card>
+      <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-base">Statistiques</CardTitle>
         </CardHeader>

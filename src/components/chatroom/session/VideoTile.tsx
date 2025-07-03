@@ -74,8 +74,8 @@ export default function VideoTile({
   }
 
   return (
-    <Card className={`relative overflow-hidden transition-all duration-300 ${
-      hasRaisedHand ? 'ring-2 ring-orange-500 ring-opacity-75 shadow-lg' : ''
+    <Card className={`relative overflow-hidden transition-all duration-300 shadow-lg ${
+      hasRaisedHand ? 'ring-2 ring-orange-500 ring-opacity-75' : ''
     } ${!isOnline ? 'opacity-50 grayscale' : ''}`}>
       <CardContent className="p-2">
         <div className="absolute top-2 right-2 flex gap-1 z-10">

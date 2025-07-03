@@ -62,7 +62,7 @@ export default function HandRaisePanel({ isTeacher = false }: HandRaisePanelProp
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md shadow-lg">
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">

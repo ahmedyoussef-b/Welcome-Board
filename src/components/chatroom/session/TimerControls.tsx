@@ -59,7 +59,7 @@ export default function TimerControls() {
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 shadow-lg">
         <Label className="text-sm font-medium">Contrôles du minuteur</Label>
         <div className="flex items-center gap-2 mt-2">
           <Button variant="outline" size="icon" onClick={() => dispatch(toggleTimer())} title={timer.isActive ? 'Pause' : 'Play'}>

@@ -15,7 +15,7 @@ export default function OverviewTab({ activeSession, user }: OverviewTabProps) {
   const onlineCount = activeSession.participants.filter(p => p.isOnline).length;
 
   return (
-    <Card>
+    <Card className="shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Video className="w-5 h-5" />
