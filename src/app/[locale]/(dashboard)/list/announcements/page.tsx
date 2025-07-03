@@ -10,7 +10,7 @@ import { getServerSession } from "@/lib/auth-utils";
 import { type AnnouncementWithClass } from "@/types/index"; 
 import { Prisma, Role } from "@prisma/client"; 
 import prisma from "@/lib/prisma";
-import { FileText } from 'lucide-react';
+import AnnouncementContent from "@/components/announcements/AnnouncementContent"; // Import the new component
 
 interface ColumnConfig {
   header: string;
@@ -40,95 +40,15 @@ const AnnouncementListPage = async ({
 
   const columns: ColumnConfig[] = [...baseColumns, ...adminColumns]; 
 
-  const renderRow = (item: AnnouncementWithClass) => {
-    let content;
-    try {
-      const fileInfo = JSON.parse(item.description || '{}');
-      
-      if (fileInfo.files && Array.isArray(fileInfo.files) && fileInfo.files.length > 0) {
-        if (fileInfo.files.length > 1) {
-          // Gallery view - Vertical Stack
-          content = (
-            <div className="max-w-lg space-y-2">
-                {fileInfo.files.map((file: any, index: number) => (
-                    <Link key={index} href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full relative aspect-[4/3] rounded-md overflow-hidden group bg-muted/50">
-                        <Image
-                            src={file.url}
-                            alt={`${item.title} - image ${index + 1}`}
-                            fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw"
-                            style={{ objectFit: 'contain' }}
-                            className="group-hover:opacity-80 transition-opacity"
-                        />
-                    </Link>
-                ))}
-            </div>
-          );
-        } else {
-          // Single file view
-          const file = fileInfo.files[0];
-          const fileType = file.type === 'raw' ? 'pdf' : file.type;
-          if (fileType === 'image') {
-            content = (
-              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative">
-                <Image 
-                  src={file.url} 
-                  alt={item.title} 
-                  width={800}
-                  height={1100}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" 
-                  style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                  className="rounded-md hover:opacity-80 transition-opacity" 
-                />
-              </Link>
-            );
-          } else {
-            content = (
-              <Link href={file.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-                <FileText className="h-4 w-4"/>
-                Voir le document
-              </Link>
-            );
-          }
-        }
-      } else if (fileInfo.fileUrl && fileInfo.fileType) {
-          const fileType = fileInfo.fileType === 'raw' ? 'pdf' : fileInfo.fileType;
-          if (fileType === 'image') {
-            content = (
-              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="block w-full max-w-md relative">
-                <Image 
-                  src={fileInfo.fileUrl} 
-                  alt={item.title} 
-                  width={800}
-                  height={1100}
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 33vw, 25vw" 
-                  style={{ width: '100%', height: 'auto', objectFit: 'contain' }}
-                  className="rounded-md hover:opacity-80 transition-opacity" 
-                />
-              </Link>
-            );
-          } else {
-            content = (
-              <Link href={fileInfo.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-primary hover:underline">
-                <FileText className="h-4 w-4"/>
-                Voir le document
-              </Link>
-            );
-          }
-      } else {
-        content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;
-      }
-    } catch (e) {
-      content = <p className="text-muted-foreground whitespace-pre-wrap break-words">{item.description}</p>;
-    }
-
-    return (
+  const renderRow = (item: AnnouncementWithClass) => (
       <tr
         key={item.id}
         className="border-b border-gray-200 even:bg-slate-50 text-sm hover:bg-lamaPurpleLight"
       >
         <td className="p-4 font-medium align-top">{item.title}</td>
-        <td className="p-4 align-top">{content}</td>
+        <td className="p-4 align-top">
+          <AnnouncementContent announcement={item} />
+        </td>
         <td className="p-4 align-top">{item.class?.name || "Tous"}</td>
         <td className="hidden md:table-cell p-4 align-top">{new Intl.DateTimeFormat("fr-FR").format(new Date(item.date))}</td>
         {userRole === Role.ADMIN && (
@@ -141,7 +61,6 @@ const AnnouncementListPage = async ({
         )}
       </tr>
     );
-  };
 
   const pageParam = searchParams?.page;
   const p = pageParam ? parseInt(Array.isArray(pageParam) ? pageParam[0] : pageParam) : 1;
