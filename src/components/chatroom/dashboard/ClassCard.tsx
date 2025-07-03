@@ -8,20 +8,15 @@ import { ClassRoom } from '@/lib/redux/slices/sessionSlice';
 
 interface ClassCardProps {
   classroom: ClassRoom;
-  isSelected?: boolean;
   onSelect: (classroom: ClassRoom) => void;
 }
 
-export default function ClassCard({ classroom, isSelected = false, onSelect }: ClassCardProps) {
+export default function ClassCard({ classroom, onSelect }: ClassCardProps) {
   const onlineStudents = classroom.students.filter(s => s.isOnline).length;
   const totalStudents = classroom.students.length;
 
   return (
-    <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 ${
-      isSelected 
-        ? 'border-l-blue-600 bg-gradient-to-r from-blue-50 to-blue-100/50 ring-2 ring-blue-200' 
-        : 'border-l-blue-500 bg-gradient-to-r from-white to-blue-50/30'
-    }`}>
+    <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer border-l-4 border-l-blue-500 bg-gradient-to-r from-white to-blue-50/30`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-gray-800">
@@ -69,13 +64,9 @@ export default function ClassCard({ classroom, isSelected = false, onSelect }: C
           
           <Button
             onClick={() => onSelect(classroom)}
-            className={`w-full transition-all duration-200 ${
-              isSelected
-                ? 'bg-gradient-to-r from-blue-700 to-indigo-700 hover:from-blue-800 hover:to-indigo-800'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-            }`}
+            className="w-full transition-all duration-200 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
           >
-            {isSelected ? 'Classe sélectionnée' : 'Gérer cette classe'}
+            Gérer cette classe
           </Button>
         </div>
       </CardContent>

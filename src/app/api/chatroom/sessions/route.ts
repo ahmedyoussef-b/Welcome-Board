@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import prisma from '@/lib/prisma';
 import { getServerSession } from '@/lib/auth-utils';
-import { Role } from '@/types';
+import type { ActiveSession } from '@/types'; // Import a rich session type
 
 export async function POST(request: NextRequest) {
   const sessionInfo = await getServerSession();
@@ -10,9 +10,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Non autorisé' }, { status: 401 });
   }
 
-  const { title, type, classId, participantIds } = await request.json();
+  // Expect the full initial session object from the client
+  const initialSession: Partial<ActiveSession> = await request.json();
 
-  if (!title || !type || !participantIds || !Array.isArray(participantIds)) {
+  const { title, sessionType, classId, participants, quizzes, polls } = initialSession;
+
+  if (!title || !sessionType || !participants || !Array.isArray(participants)) {
     return NextResponse.json({ message: 'Données de session invalides' }, { status: 400 });
   }
 
@@ -22,17 +25,39 @@ export async function POST(request: NextRequest) {
     const newSession = await prisma.chatroomSession.create({
       data: {
         title,
-        type,
+        type: sessionType,
         hostId,
-        classId: type === 'CLASS' ? parseInt(classId, 10) : null,
+        classId: sessionType === 'class' && classId ? parseInt(classId, 10) : null,
         participants: {
-          create: [
-            // Add the host as a participant
-            { userId: hostId }, 
-            // Add the other participants
-            ...participantIds.map((id: string) => ({ userId: id })),
-          ],
+          create: participants.map((p) => ({ userId: p.id })),
         },
+        // Create related polls and quizzes if they exist
+        polls: polls && polls.length > 0 ? {
+          create: polls.map(poll => ({
+            question: poll.question,
+            isActive: poll.isActive,
+            options: {
+              create: poll.options.map(option => ({
+                text: option.text,
+              }))
+            }
+          }))
+        } : undefined,
+        quizzes: quizzes && quizzes.length > 0 ? {
+            create: quizzes.map(quiz => ({
+                title: quiz.title,
+                isActive: quiz.isActive,
+                currentQuestionIndex: 0,
+                questions: {
+                    create: quiz.questions.map(q => ({
+                        question: q.question,
+                        options: q.options,
+                        correctAnswer: q.correctAnswer,
+                        timeLimit: q.timeLimit,
+                    }))
+                }
+            }))
+        } : undefined,
       },
       include: {
         participants: {
@@ -42,7 +67,9 @@ export async function POST(request: NextRequest) {
             }
           }
         },
-        messages: true
+        messages: true,
+        polls: { include: { options: true } },
+        quizzes: { include: { questions: true, answers: true } },
       }
     });
 

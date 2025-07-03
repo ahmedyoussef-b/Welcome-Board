@@ -1,5 +1,6 @@
 
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { ActiveSession } from './sessionSlice'; // Import ActiveSession for report generation
 
 export interface SessionReport {
   id: string;
@@ -7,15 +8,15 @@ export interface SessionReport {
   className: string;
   teacherId: string;
   teacherName: string;
-  startTime: string; // Changed from Date
-  endTime?: string; // Changed from Date
+  startTime: string; 
+  endTime: string; 
   duration: number; // en secondes
   participants: Array<{
     id: string;
     name: string;
     email: string;
-    joinTime: string; // Changed from Date
-    leaveTime?: string; // Changed from Date
+    joinTime: string; 
+    leaveTime: string; 
     duration: number; // temps passé dans la session en secondes
   }>;
   maxParticipants: number;
@@ -38,8 +39,32 @@ const reportSlice = createSlice({
   name: 'reports',
   initialState,
   reducers: {
-    addSessionReport: (state, action: PayloadAction<SessionReport>) => {
-      state.sessions.unshift(action.payload);
+    addSessionReportFromActiveSession: (state, action: PayloadAction<{session: ActiveSession, hostName: string}>) => {
+        const { session, hostName } = action.payload;
+        const endTime = new Date().toISOString();
+        const startTime = new Date(session.startTime);
+
+        const report: SessionReport = {
+            id: session.id,
+            classId: session.classId,
+            className: session.className,
+            teacherId: session.hostId,
+            teacherName: hostName,
+            startTime: session.startTime,
+            endTime: endTime,
+            duration: Math.floor((new Date(endTime).getTime() - startTime.getTime()) / 1000),
+            participants: session.participants.map(p => ({
+                id: p.id,
+                name: p.name,
+                email: p.email,
+                joinTime: session.startTime, // Simplified: assume they joined at the start
+                leaveTime: endTime, // Simplified: assume they left at the end
+                duration: Math.floor((new Date(endTime).getTime() - startTime.getTime()) / 1000)
+            })),
+            maxParticipants: session.participants.length,
+            status: 'completed'
+        };
+        state.sessions.unshift(report);
     },
     updateSessionReport: (state, action: PayloadAction<Partial<SessionReport> & { id: string }>) => {
       const index = state.sessions.findIndex(s => s.id === action.payload.id);
@@ -57,7 +82,7 @@ const reportSlice = createSlice({
 });
 
 export const {
-  addSessionReport,
+  addSessionReportFromActiveSession,
   updateSessionReport,
   setLoading,
   setError,

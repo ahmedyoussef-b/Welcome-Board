@@ -5,12 +5,14 @@ import { useAppSelector, useAppDispatch } from '@/hooks/redux-hooks';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import SessionRoom from '@/components/chatroom/session/SessionRoom';
 import { endSession, fetchSessionState } from '@/lib/redux/slices/sessionSlice';
+import { addSessionReportFromActiveSession } from '@/lib/redux/slices/reportSlice';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { addNotification } from '@/lib/redux/slices/notificationSlice';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { useEffect } from 'react';
 import { Spinner } from '@/components/ui/spinner';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function SessionPage() {
     const dispatch = useAppDispatch();
@@ -34,10 +36,17 @@ export default function SessionPage() {
     
         try {
             await dispatch(endSession(activeSession.id)).unwrap();
+
+            // Generate and save report to Redux state
+            dispatch(addSessionReportFromActiveSession({
+                session: activeSession,
+                hostName: user.name || user.email,
+            }));
+
             dispatch(addNotification({
               type: 'session_ended',
               title: 'Session terminée',
-              message: 'La session a été fermée.',
+              message: 'La session a été fermée et le rapport a été généré.',
             }));
         
             if (user.role === 'TEACHER') {

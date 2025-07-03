@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Video, LogOut } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateStudentPresence, tickTimer, breakoutTimerTick } from '@/lib/redux/slices/sessionSlice';
+import { updateStudentPresence, tickTimer, breakoutTimerTick, endSession, type ActiveSession } from '@/lib/redux/slices/sessionSlice';
+import { addSessionReport, type SessionReport } from '@/lib/redux/slices/reportSlice';
 import TimerDisplay from './TimerDisplay';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { useToast } from "@/hooks/use-toast";
@@ -13,7 +14,6 @@ import { useToast } from "@/hooks/use-toast";
 // Import session components
 import OverviewTab from './tabs/OverviewTab';
 import SessionSidebar from './SessionSidebar';
-import ChatPanel from './ChatPanel';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // New components for screen sharing and whiteboard

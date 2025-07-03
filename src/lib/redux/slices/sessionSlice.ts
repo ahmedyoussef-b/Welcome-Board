@@ -1,7 +1,9 @@
 
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import { arrayMove } from '@dnd-kit/sortable';
+import type { SafeUser } from '@/types';
 
+// Centralized type definitions
 export interface Badge {
   id: string;
   type: 'participation' | 'correct_answer' | 'helpful' | 'creative' | 'leader' | 'consistent';
@@ -107,6 +109,7 @@ export interface BreakoutRoom {
 
 export interface ActiveSession {
   id: string;
+  hostId: string;
   sessionType: 'class' | 'meeting';
   classId: string;
   className: string;
@@ -130,22 +133,18 @@ export interface ActiveSession {
       duration: number;
       remaining: number;
   } | null;
+  messages: ChatroomMessage[];
 }
 
-export interface ChatMessage {
-    id: string;
-    userId: string;
-    userName: string;
-    userAvatar?: string | null;
-    message?: string;
-    timestamp: string;
-    userRole: 'admin' | 'teacher' | 'student';
-    documentUrl?: string;
-    documentType?: 'image' | 'pdf' | 'other';
-    documentName?: string;
+export interface ChatroomMessage {
+  id: string;
+  content: string;
+  authorId: string;
+  chatroomSessionId: string;
+  createdAt: string;
+  author: Partial<SafeUser>;
 }
 
-// NEW: Template Interfaces
 export interface SessionTemplate {
   id: string;
   name: string;
@@ -154,7 +153,6 @@ export interface SessionTemplate {
   polls: Omit<Poll, 'id' | 'createdAt' | 'isActive' | 'totalVotes' | 'options'> & { options: string[] }[];
 }
 
-// NEW: Mock Data for Templates
 const SESSION_TEMPLATES: SessionTemplate[] = [
   {
     id: 'template_math_7',
@@ -210,7 +208,6 @@ const SESSION_TEMPLATES: SessionTemplate[] = [
   }
 ];
 
-
 interface SessionState {
   classes: ClassRoom[];
   selectedClass: ClassRoom | null;
@@ -233,21 +230,17 @@ const initialState: SessionState = {
   chatMessages: [],
 };
 
+// --- ASYNC THUNKS ---
+
 export const fetchChatroomClasses = createAsyncThunk<ClassRoom[], void, { rejectValue: string }>(
   'session/fetchChatroomClasses',
   async (_, { rejectWithValue }) => {
     try {
       const response = await fetch('/api/chatroom/classes');
-      if (!response.ok) {
-        const errorData = await response.json();
-        return rejectWithValue(errorData.message || 'Échec de la récupération des classes');
-      }
+      if (!response.ok) throw new Error('Failed to fetch classes');
       return await response.json();
     } catch (error) {
-      if (error instanceof Error) {
-        return rejectWithValue(error.message);
-      }
-      return rejectWithValue('Une erreur réseau inconnue est survenue');
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
     }
   }
 );
@@ -255,21 +248,107 @@ export const fetchChatroomClasses = createAsyncThunk<ClassRoom[], void, { reject
 export const fetchMeetingParticipants = createAsyncThunk<SessionParticipant[], void, { rejectValue: string }>(
     'session/fetchMeetingParticipants',
     async (_, { rejectWithValue }) => {
-        try {
-            const response = await fetch('/api/chatroom/teachers');
-            if (!response.ok) {
-                const errorData = await response.json();
-                return rejectWithValue(errorData.message || 'Échec de la récupération des professeurs');
-            }
-            return await response.json();
-        } catch (error) {
-            if (error instanceof Error) {
-                return rejectWithValue(error.message);
-            }
-            return rejectWithValue('Une erreur réseau inconnue est survenue');
-        }
+      try {
+        const response = await fetch('/api/chatroom/teachers');
+        if (!response.ok) throw new Error('Failed to fetch teachers');
+        return await response.json();
+      } catch (error) {
+        return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+      }
     }
 );
+
+export const startSession = createAsyncThunk<ActiveSession, { classId: string; className: string; participantIds: string[], templateId?: string }, { rejectValue: string, state: { session: SessionState, auth: { user: SafeUser | null } } }>(
+  'session/startSession',
+  async ({ classId, className, participantIds, templateId }, { rejectWithValue, getState }) => {
+    const state = getState();
+    const host = state.auth.user;
+    const selectedClass = state.session.classes.find(c => c.id.toString() === classId);
+
+    if (!host || !selectedClass) return rejectWithValue('Host or class data not found');
+
+    const participants = selectedClass.students
+      .filter(s => participantIds.includes(s.id))
+      .map(s => ({ ...s, isInSession: true, hasRaisedHand: false, points: s.points || 0, badges: s.badges || [], isMuted: false, breakoutRoomId: null }));
+    
+    // Add host to participants
+    participants.unshift({ id: host.id, name: host.name || host.email, email: host.email, role: 'teacher', img: host.img, isOnline: true, isInSession: true, hasRaisedHand: false, points: 0, badges: [], isMuted: false, breakoutRoomId: null });
+
+    let templatePolls: Poll[] = [];
+    let templateQuizzes: Quiz[] = [];
+    const selectedTemplate = templateId ? SESSION_TEMPLATES.find(t => t.id === templateId) : null;
+    if (selectedTemplate) {
+      templatePolls = selectedTemplate.polls.map(p => ({
+        id: `poll_${Date.now()}_${Math.random()}`, question: p.question, options: p.options.map((text, i) => ({ id: `opt_${i}`, text, votes: [] })), isActive: false, createdAt: new Date().toISOString(), totalVotes: 0
+      }));
+      templateQuizzes = selectedTemplate.quizzes.map(q => ({
+        id: `quiz_${Date.now()}_${Math.random()}`, title: q.title, questions: q.questions.map((ques, i) => ({ ...ques, id: `q_${i}` })), currentQuestionIndex: 0, isActive: false, startTime: new Date().toISOString(), answers: [], timeRemaining: q.questions[0]?.timeLimit || 30
+      }));
+    }
+    
+    const initialSessionPayload: Partial<ActiveSession> = {
+      sessionType: 'class',
+      classId,
+      className,
+      participants,
+      hostId: host.id,
+      title: className,
+      polls: templatePolls,
+      quizzes: templateQuizzes,
+    };
+
+    try {
+      const response = await fetch('/api/chatroom/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(initialSessionPayload)
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        return rejectWithValue(errorData.message || 'Failed to start session on server');
+      }
+      return await response.json();
+    } catch (error) {
+      return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+  }
+);
+
+export const fetchSessionState = createAsyncThunk('session/fetchState', async (sessionId: string, { rejectWithValue }) => {
+  try {
+    const response = await fetch(`/api/chatroom/sessions/${sessionId}`);
+    if (!response.ok) throw new Error('Failed to fetch session state');
+    return await response.json();
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+  }
+});
+
+export const sendMessage = createAsyncThunk('session/sendMessage', async ({ sessionId, content }: { sessionId: string; content: string }, { rejectWithValue }) => {
+  try {
+    const response = await fetch(`/api/chatroom/sessions/${sessionId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    if (!response.ok) throw new Error('Failed to send message');
+    return await response.json();
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+  }
+});
+
+export const endSession = createAsyncThunk('session/endSession', async (sessionId: string, { rejectWithValue }) => {
+    try {
+        const response = await fetch(`/api/chatroom/sessions/${sessionId}/end`, {
+            method: 'POST',
+        });
+        if (!response.ok) throw new Error('Failed to end session');
+        return await response.json();
+    } catch (error) {
+        return rejectWithValue(error instanceof Error ? error.message : 'Unknown error');
+    }
+});
 
 
 const sessionSlice = createSlice({
@@ -295,94 +374,6 @@ const sessionSlice = createSlice({
         } else {
             state.selectedTeachers.push(teacherId);
         }
-    },
-    startSession: (state, action: PayloadAction<{ classId: string; className: string; templateId?: string }>) => {
-      const { classId, className, templateId } = action.payload;
-      const selectedStudentsData = state.selectedClass?.students.filter(
-        student => state.selectedStudents.includes(student.id)
-      ) || [];
-      
-      let templatePolls: Poll[] = [];
-      let templateQuizzes: Quiz[] = [];
-      const selectedTemplate = templateId ? SESSION_TEMPLATES.find(t => t.id === templateId) : null;
-
-      if (selectedTemplate) {
-        templatePolls = selectedTemplate.polls.map(p => ({
-          id: `poll_${Date.now()}_${Math.random()}`,
-          question: p.question,
-          options: p.options.map((text, index) => ({
-            id: `option_${index}`,
-            text,
-            votes: [],
-          })),
-          isActive: false, 
-          createdAt: new Date().toISOString(),
-          totalVotes: 0,
-        }));
-        templateQuizzes = selectedTemplate.quizzes.map(q => ({
-          id: `quiz_${Date.now()}_${Math.random()}`,
-          title: q.title,
-          questions: q.questions.map((ques, index) => ({
-            ...ques,
-            id: `question_${index}`
-          })),
-          currentQuestionIndex: 0,
-          isActive: false, 
-          startTime: new Date().toISOString(),
-          answers: [],
-          timeRemaining: q.questions[0]?.timeLimit || 30,
-        }));
-      }
-      
-      state.activeSession = {
-        id: `session_${Date.now()}`,
-        sessionType: 'class',
-        classId,
-        className,
-        participants: selectedStudentsData.map(s => ({ 
-          ...s, 
-          isInSession: true, 
-          hasRaisedHand: false,
-          points: s.points || 0,
-          badges: s.badges || [],
-          isMuted: false,
-          breakoutRoomId: null,
-        })),
-        startTime: new Date().toISOString(),
-        raisedHands: [],
-        reactions: [],
-        polls: templatePolls,
-        activePoll: undefined,
-        quizzes: templateQuizzes,
-        activeQuiz: undefined,
-        rewardActions: [],
-        classTimer: null,
-        spotlightedParticipantId: null,
-        breakoutRooms: null,
-        breakoutTimer: null,
-      };
-      state.chatMessages = [];
-    },
-    startMeeting: (state, action: PayloadAction<{ meetingTitle: string; participants: SessionParticipant[] }>) => {
-        const { meetingTitle, participants } = action.payload;
-        state.activeSession = {
-            id: `meeting_${Date.now()}`,
-            sessionType: 'meeting',
-            classId: 'admin-meeting', 
-            className: meetingTitle,
-            participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [], isMuted: false, breakoutRoomId: null })),
-            startTime: new Date().toISOString(),
-            raisedHands: [],
-            reactions: [],
-            polls: [],
-            quizzes: [],
-            rewardActions: [],
-            classTimer: null,
-            spotlightedParticipantId: null,
-            breakoutRooms: null,
-            breakoutTimer: null,
-        };
-        state.chatMessages = [];
     },
     moveParticipant: (state, action: PayloadAction<{ fromIndex: number; toIndex: number }>) => {
         if (state.activeSession) {
@@ -419,7 +410,6 @@ const sessionSlice = createSlice({
         if (!state.activeSession.raisedHands.includes(studentId)) {
           state.activeSession.raisedHands.push(studentId);
         }
-        
         const participant = state.activeSession.participants.find(p => p.id === studentId);
         if (participant) {
           participant.hasRaisedHand = true;
@@ -430,10 +420,7 @@ const sessionSlice = createSlice({
     lowerHand: (state, action: PayloadAction<string>) => {
       const studentId = action.payload;
       if (state.activeSession) {
-        state.activeSession.raisedHands = state.activeSession.raisedHands.filter(
-          id => id !== studentId
-        );
-        
+        state.activeSession.raisedHands = state.activeSession.raisedHands.filter(id => id !== studentId);
         const participant = state.activeSession.participants.find(p => p.id === studentId);
         if (participant) {
           participant.hasRaisedHand = false;
@@ -450,43 +437,20 @@ const sessionSlice = createSlice({
         });
       }
     },
-    sendReaction: (state, action: PayloadAction<{ studentId: string; studentName: string; type: 'thumbs_up' | 'thumbs_down' | 'heart' | 'laugh' | 'understood' | 'confused' }>) => {
+    sendReaction: (state, action: PayloadAction<{ studentId: string; studentName: string; type: Reaction['type'] }>) => {
       if (state.activeSession) {
-        const reaction: Reaction = {
-          id: `reaction_${Date.now()}`,
-          studentId: action.payload.studentId,
-          studentName: action.payload.studentName,
-          type: action.payload.type,
-          timestamp: new Date().toISOString(),
-        };
-        
-        state.activeSession.reactions.unshift(reaction);
-        
-        if (state.activeSession.reactions.length > 50) {
-          state.activeSession.reactions = state.activeSession.reactions.slice(0, 50);
-        }
+        state.activeSession.reactions.unshift({ ...action.payload, id: `reaction_${Date.now()}`, timestamp: new Date().toISOString() });
+        if (state.activeSession.reactions.length > 50) state.activeSession.reactions.pop();
       }
     },
     clearReactions: (state) => {
-      if (state.activeSession) {
-        state.activeSession.reactions = [];
-      }
+      if (state.activeSession) state.activeSession.reactions = [];
     },
     createPoll: (state, action: PayloadAction<{ question: string; options: string[] }>) => {
       if (state.activeSession) {
         const poll: Poll = {
-          id: `poll_${Date.now()}`,
-          question: action.payload.question,
-          options: action.payload.options.map((text, index) => ({
-            id: `option_${index}`,
-            text,
-            votes: [],
-          })),
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          totalVotes: 0,
+          id: `poll_${Date.now()}`, question: action.payload.question, options: action.payload.options.map((text, index) => ({ id: `option_${index}`, text, votes: [] })), isActive: true, createdAt: new Date().toISOString(), totalVotes: 0
         };
-        
         state.activeSession.polls.push(poll);
         state.activeSession.activePoll = poll;
       }
@@ -495,40 +459,19 @@ const sessionSlice = createSlice({
         if (!state.activeSession) return;
         const poll = state.activeSession.polls.find(p => p.id === action.payload.pollId);
         if (!poll || !poll.isActive) return;
-
         const hasVoted = poll.options.some(opt => opt.votes.includes(action.payload.studentId));
-        
-        poll.options.forEach(option => {
-            option.votes = option.votes.filter(id => id !== action.payload.studentId);
-        });
-
+        poll.options.forEach(option => { option.votes = option.votes.filter(id => id !== action.payload.studentId); });
         const option = poll.options.find(o => o.id === action.payload.optionId);
-        if (option) {
-            option.votes.push(action.payload.studentId);
-        }
-
+        if (option) option.votes.push(action.payload.studentId);
         if (!hasVoted) {
             const student = state.activeSession.participants.find(p => p.id === action.payload.studentId);
             if (student && state.activeSession.sessionType === 'class') {
                 student.points = (student.points || 0) + 2;
-                const rewardAction: RewardAction = {
-                    id: `reward_poll_${Date.now()}`,
-                    studentId: action.payload.studentId,
-                    studentName: student.name,
-                    type: 'poll_vote',
-                    points: 2,
-                    reason: `A voté au sondage: "${poll.question.substring(0, 20)}..."`,
-                    timestamp: new Date().toISOString(),
-                };
-                state.activeSession.rewardActions.unshift(rewardAction);
+                state.activeSession.rewardActions.unshift({ id: `reward_poll_${Date.now()}`, studentId: action.payload.studentId, studentName: student.name, type: 'poll_vote', points: 2, reason: `A voté au sondage: "${poll.question.substring(0, 20)}..."`, timestamp: new Date().toISOString() });
             }
         }
-
         poll.totalVotes = poll.options.reduce((total, opt) => total + opt.votes.length, 0);
-        
-        if (state.activeSession.activePoll?.id === poll.id) {
-            state.activeSession.activePoll = { ...poll };
-        }
+        if (state.activeSession.activePoll?.id === poll.id) state.activeSession.activePoll = { ...poll };
     },
     endPoll: (state, action: PayloadAction<string>) => {
       if (state.activeSession) {
@@ -536,241 +479,104 @@ const sessionSlice = createSlice({
         if (poll) {
           poll.isActive = false;
           poll.endedAt = new Date().toISOString();
-          
-          if (state.activeSession.activePoll?.id === poll.id) {
-            state.activeSession.activePoll = undefined;
-          }
+          if (state.activeSession.activePoll?.id === poll.id) state.activeSession.activePoll = undefined;
         }
       }
-    },
-    endSession: (state) => {
-      state.activeSession = null;
-      state.selectedStudents = [];
-      state.selectedTeachers = [];
     },
     updateStudentPresence: (state, action: PayloadAction<{ studentId: string; isOnline: boolean }>) => {
-      const { studentId, isOnline } = action.payload;
-      state.classes.forEach(classroom => {
-        const student = classroom.students.find(s => s.id === studentId);
-        if (student) {
-          student.isOnline = isOnline;
-        }
-      });
-      
-      if (state.activeSession) {
-        const participant = state.activeSession.participants.find(p => p.id === studentId);
-        if (participant) {
-          participant.isOnline = isOnline;
-        }
-      }
+      state.classes.forEach(c => c.students.find(s => s.id === action.payload.studentId && (s.isOnline = action.payload.isOnline)));
+      if (state.activeSession?.participants) state.activeSession.participants.find(p => p.id === action.payload.studentId && (p.isOnline = action.payload.isOnline));
     },
-    
-    // Quiz Actions
     createQuiz: (state, action: PayloadAction<{ title: string; questions: Omit<QuizQuestion, 'id'>[] }>) => {
       if (state.activeSession) {
         const quiz: Quiz = {
-          id: `quiz_${Date.now()}`,
-          title: action.payload.title,
-          questions: action.payload.questions.map((q, index) => ({
-            ...q,
-            id: `question_${index}`,
-          })),
-          currentQuestionIndex: 0,
-          isActive: true,
-          startTime: new Date().toISOString(),
-          answers: [],
-          timeRemaining: action.payload.questions[0]?.timeLimit || 30,
+          id: `quiz_${Date.now()}`, title: action.payload.title, questions: action.payload.questions.map((q, i) => ({ ...q, id: `q_${i}` })), currentQuestionIndex: 0, isActive: true, startTime: new Date().toISOString(), answers: [], timeRemaining: action.payload.questions[0]?.timeLimit || 30
         };
-        
         state.activeSession.quizzes.push(quiz);
         state.activeSession.activeQuiz = quiz;
       }
     },
-    
     answerQuiz: (state, action: PayloadAction<{ quizId: string; questionId: string; selectedOption: number; studentId: string }>) => {
         if (!state.activeSession) return;
         const quiz = state.activeSession.quizzes.find(q => q.id === action.payload.quizId);
         if (!quiz || !quiz.isActive) return;
-
         const question = quiz.questions.find(q => q.id === action.payload.questionId);
-        if (!question) return;
-
-        const hasAnswered = quiz.answers.some(a => a.studentId === action.payload.studentId && a.questionId === action.payload.questionId);
-        if (hasAnswered) return;
-
+        if (!question || quiz.answers.some(a => a.studentId === action.payload.studentId && a.questionId === action.payload.questionId)) return;
         const isCorrect = action.payload.selectedOption === question.correctAnswer;
-        const answer: QuizAnswer = {
-            studentId: action.payload.studentId,
-            questionId: action.payload.questionId,
-            selectedOption: action.payload.selectedOption,
-            isCorrect,
-            answeredAt: new Date().toISOString(),
-        };
-        quiz.answers.push(answer);
-        
+        quiz.answers.push({ ...action.payload, isCorrect, answeredAt: new Date().toISOString() });
         const student = state.activeSession.participants.find(p => p.id === action.payload.studentId);
         if (student && state.activeSession.sessionType === 'class') {
-            const pointsAwarded = isCorrect ? 10 : 1;
-            const reason = isCorrect ? 'Bonne réponse au quiz' : 'Participation au quiz';
-            student.points = (student.points || 0) + pointsAwarded;
-            const rewardAction: RewardAction = {
-                id: `reward_quiz_${Date.now()}`,
-                studentId: action.payload.studentId,
-                studentName: student.name,
-                type: isCorrect ? 'quiz_correct' : 'participation',
-                points: pointsAwarded,
-                reason: `${reason}: "${question.question.substring(0, 20)}..."`,
-                timestamp: new Date().toISOString(),
-            };
-            state.activeSession.rewardActions.unshift(rewardAction);
+            const points = isCorrect ? 10 : 1;
+            student.points = (student.points || 0) + points;
+            state.activeSession.rewardActions.unshift({ id: `reward_quiz_${Date.now()}`, studentId: action.payload.studentId, studentName: student.name, type: isCorrect ? 'quiz_correct' : 'participation', points, reason: `${isCorrect ? 'Bonne réponse' : 'Participation'} au quiz: "${question.question.substring(0, 20)}..."`, timestamp: new Date().toISOString() });
         }
-
-        if (state.activeSession.activeQuiz?.id === quiz.id) {
-            state.activeSession.activeQuiz = { ...quiz };
-        }
+        if (state.activeSession.activeQuiz?.id === quiz.id) state.activeSession.activeQuiz = { ...quiz };
     },
-    
     nextQuizQuestion: (state, action: PayloadAction<string>) => {
       if (state.activeSession) {
         const quiz = state.activeSession.quizzes.find(q => q.id === action.payload);
         if (quiz && quiz.isActive) {
           if (quiz.currentQuestionIndex < quiz.questions.length - 1) {
-            quiz.currentQuestionIndex += 1;
+            quiz.currentQuestionIndex++;
             quiz.timeRemaining = quiz.questions[quiz.currentQuestionIndex].timeLimit;
           } else {
             quiz.isActive = false;
             quiz.endTime = new Date().toISOString();
-            if (state.activeSession.activeQuiz?.id === quiz.id) {
-              state.activeSession.activeQuiz = undefined;
-            }
+            if (state.activeSession.activeQuiz?.id === quiz.id) state.activeSession.activeQuiz = undefined;
           }
-          
-          if (state.activeSession.activeQuiz?.id === quiz.id) {
-            state.activeSession.activeQuiz = { ...quiz };
-          }
+          if (state.activeSession.activeQuiz?.id === quiz.id) state.activeSession.activeQuiz = { ...quiz };
         }
       }
     },
-    
     updateQuizTimer: (state, action: PayloadAction<{ quizId: string; timeRemaining: number }>) => {
       if (state.activeSession) {
         const quiz = state.activeSession.quizzes.find(q => q.id === action.payload.quizId);
         if (quiz && quiz.isActive) {
           quiz.timeRemaining = action.payload.timeRemaining;
-          
-          if (state.activeSession.activeQuiz?.id === quiz.id) {
-            state.activeSession.activeQuiz = { ...quiz };
-          }
+          if (state.activeSession.activeQuiz?.id === quiz.id) state.activeSession.activeQuiz = { ...quiz };
         }
       }
     },
-    
     endQuiz: (state, action: PayloadAction<string>) => {
       if (state.activeSession) {
         const quiz = state.activeSession.quizzes.find(q => q.id === action.payload);
         if (quiz) {
           quiz.isActive = false;
           quiz.endTime = new Date().toISOString();
-          
-          if (state.activeSession.activeQuiz?.id === quiz.id) {
-            state.activeSession.activeQuiz = undefined;
-          }
+          if (state.activeSession.activeQuiz?.id === quiz.id) state.activeSession.activeQuiz = undefined;
         }
       }
     },
-    
     awardReward: (state, action: PayloadAction<{ studentId: string; points: number; badge?: Omit<Badge, 'id' | 'earnedAt'>; reason: string }>) => {
       if (state.activeSession) {
         const student = state.activeSession.participants.find(p => p.id === action.payload.studentId);
         if (student) {
-          student.points = (student.points || 0) + action.payload.points;
-          
+          student.points += action.payload.points;
           let badge: Badge | undefined;
           if (action.payload.badge) {
-            badge = {
-              ...action.payload.badge,
-              id: `badge_${Date.now()}`,
-              earnedAt: new Date().toISOString(),
-            };
-            
+            badge = { ...action.payload.badge, id: `badge_${Date.now()}`, earnedAt: new Date().toISOString() };
             if (!student.badges) student.badges = [];
             student.badges.push(badge);
           }
-          
-          const rewardAction: RewardAction = {
-            id: `reward_${Date.now()}`,
-            studentId: action.payload.studentId,
-            studentName: student.name,
-            type: 'manual',
-            points: action.payload.points,
-            badge,
-            reason: action.payload.reason,
-            timestamp: new Date().toISOString(),
-          };
-          
-          state.activeSession.rewardActions.unshift(rewardAction);
+          state.activeSession.rewardActions.unshift({ id: `reward_${Date.now()}`, studentId: action.payload.studentId, studentName: student.name, type: 'manual', points: action.payload.points, badge, reason: action.payload.reason, timestamp: new Date().toISOString() });
         }
       }
     },
-    
     awardParticipationPoints: (state, action: PayloadAction<string>) => {
       if (state.activeSession) {
         const student = state.activeSession.participants.find(p => p.id === action.payload);
         if (student) {
-          student.points = (student.points || 0) + 5;
-          
-          const rewardAction: RewardAction = {
-            id: `reward_${Date.now()}`,
-            studentId: action.payload,
-            studentName: student.name,
-            type: 'participation',
-            points: 5,
-            reason: 'Participation active',
-            timestamp: new Date().toISOString(),
-          };
-          
-          state.activeSession.rewardActions.push(rewardAction);
+          student.points += 5;
+          state.activeSession.rewardActions.push({ id: `reward_${Date.now()}`, studentId: action.payload, studentName: student.name, type: 'participation', points: 5, reason: 'Participation active', timestamp: new Date().toISOString() });
         }
       }
     },
-    sendMessage: (state, action: PayloadAction<Omit<ChatMessage, 'id' | 'timestamp'>>) => {
-        if (state.activeSession) {
-            const message: ChatMessage = {
-                ...action.payload,
-                id: `msg_${Date.now()}`,
-                timestamp: new Date().toISOString(),
-            };
-            state.chatMessages.push(message);
-        }
-    },
-    shareDocument: (state, action: PayloadAction<Omit<ChatMessage, 'id' | 'timestamp'>>) => {
-        if (state.activeSession) {
-            const documentMessage: ChatMessage = {
-                ...action.payload,
-                id: `doc_${Date.now()}`,
-                timestamp: new Date().toISOString(),
-            };
-            state.chatMessages.push(documentMessage);
-        }
-    },
-    clearChatMessages: (state) => {
-        state.chatMessages = [];
-    },
-
-    // Timer Actions
+    clearChatMessages: (state) => { state.chatMessages = []; },
     setTimer: (state, action: PayloadAction<number>) => {
-      if (state.activeSession) {
-        state.activeSession.classTimer = {
-          duration: action.payload,
-          remaining: action.payload,
-          isActive: false,
-        };
-      }
+      if (state.activeSession) state.activeSession.classTimer = { duration: action.payload, remaining: action.payload, isActive: false };
     },
     toggleTimer: (state) => {
-      if (state.activeSession?.classTimer) {
-        state.activeSession.classTimer.isActive = !state.activeSession.classTimer.isActive;
-      }
+      if (state.activeSession?.classTimer) state.activeSession.classTimer.isActive = !state.activeSession.classTimer.isActive;
     },
     resetTimer: (state) => {
       if (state.activeSession?.classTimer) {
@@ -779,166 +585,93 @@ const sessionSlice = createSlice({
       }
     },
     stopTimer: (state) => {
-      if (state.activeSession) {
-        state.activeSession.classTimer = null;
-      }
+      if (state.activeSession) state.activeSession.classTimer = null;
     },
     tickTimer: (state) => {
       if (state.activeSession?.classTimer?.isActive && state.activeSession.classTimer.remaining > 0) {
         state.activeSession.classTimer.remaining--;
       } else if (state.activeSession?.classTimer) {
-          state.activeSession.classTimer.isActive = false;
+        state.activeSession.classTimer.isActive = false;
       }
     },
-    // Advanced Moderation Actions
     toggleMute: (state, action: PayloadAction<string>) => {
-        const participant = state.activeSession?.participants.find(p => p.id === action.payload);
-        if (participant) {
-            participant.isMuted = !participant.isMuted;
-        }
+      const participant = state.activeSession?.participants.find(p => p.id === action.payload);
+      if (participant) participant.isMuted = !participant.isMuted;
     },
-    muteAllStudents: (state) => {
-        if (state.activeSession) {
-            state.activeSession.participants.forEach(p => {
-                if (p.role === 'student') {
-                    p.isMuted = true;
-                }
-            });
-        }
-    },
-    unmuteAllStudents: (state) => {
-        if (state.activeSession) {
-            state.activeSession.participants.forEach(p => {
-                if (p.role === 'student') {
-                    p.isMuted = false;
-                }
-            });
-        }
-    },
+    muteAllStudents: (state) => { if (state.activeSession) state.activeSession.participants.forEach(p => p.role === 'student' && (p.isMuted = true)); },
+    unmuteAllStudents: (state) => { if (state.activeSession) state.activeSession.participants.forEach(p => p.role === 'student' && (p.isMuted = false)); },
     toggleSpotlight: (state, action: PayloadAction<string>) => {
-        if (state.activeSession) {
-            if (state.activeSession.spotlightedParticipantId === action.payload) {
-                state.activeSession.spotlightedParticipantId = null;
-            } else {
-                state.activeSession.spotlightedParticipantId = action.payload;
-            }
-        }
+      if (state.activeSession) state.activeSession.spotlightedParticipantId = state.activeSession.spotlightedParticipantId === action.payload ? null : action.payload;
     },
     createBreakoutRooms: (state, action: PayloadAction<{ numberOfRooms: number, durationMinutes: number }>) => {
         if (!state.activeSession) return;
-        const { numberOfRooms, durationMinutes } = action.payload;
         const students = state.activeSession.participants.filter(p => p.role === 'student');
-        const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
-
-        const rooms: BreakoutRoom[] = Array.from({ length: numberOfRooms }, (_, i) => ({
-            id: `breakout_${Date.now()}_${i}`,
-            name: `Salle ${i + 1}`,
-            participantIds: [],
-        }));
-        
-        shuffledStudents.forEach((student, index) => {
-            const roomIndex = index % numberOfRooms;
-            rooms[roomIndex].participantIds.push(student.id);
-            const participantInSession = state.activeSession?.participants.find(p => p.id === student.id);
-            if (participantInSession) {
-                participantInSession.breakoutRoomId = rooms[roomIndex].id;
-            }
+        const shuffled = [...students].sort(() => Math.random() - 0.5);
+        const rooms: BreakoutRoom[] = Array.from({ length: action.payload.numberOfRooms }, (_, i) => ({ id: `br_${Date.now()}_${i}`, name: `Salle ${i + 1}`, participantIds: [] }));
+        shuffled.forEach((s, i) => {
+          const roomIndex = i % action.payload.numberOfRooms;
+          rooms[roomIndex].participantIds.push(s.id);
+          const p = state.activeSession?.participants.find(p => p.id === s.id);
+          if (p) p.breakoutRoomId = rooms[roomIndex].id;
         });
-
         state.activeSession.breakoutRooms = rooms;
-        state.activeSession.breakoutTimer = {
-            duration: durationMinutes * 60,
-            remaining: durationMinutes * 60,
-        };
+        state.activeSession.breakoutTimer = { duration: action.payload.durationMinutes * 60, remaining: action.payload.durationMinutes * 60 };
     },
     endBreakoutRooms: (state) => {
         if (state.activeSession) {
-            state.activeSession.breakoutRooms = null;
-            state.activeSession.breakoutTimer = null;
-            state.activeSession.participants.forEach(p => {
-                p.breakoutRoomId = null;
-            });
+          state.activeSession.breakoutRooms = null;
+          state.activeSession.breakoutTimer = null;
+          state.activeSession.participants.forEach(p => p.breakoutRoomId = null);
         }
     },
     breakoutTimerTick: (state) => {
         if (state.activeSession?.breakoutTimer && state.activeSession.breakoutTimer.remaining > 0) {
-            state.activeSession.breakoutTimer.remaining--;
+          state.activeSession.breakoutTimer.remaining--;
         } else if (state.activeSession?.breakoutTimer) {
-            // Timer finished, end the breakout rooms
-            state.activeSession.breakoutRooms = null;
-            state.activeSession.breakoutTimer = null;
-            state.activeSession.participants.forEach(p => {
-                p.breakoutRoomId = null;
-            });
+          state.activeSession.breakoutRooms = null;
+          state.activeSession.breakoutTimer = null;
+          state.activeSession.participants.forEach(p => p.breakoutRoomId = null);
         }
     }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchChatroomClasses.pending, (state) => {
-        state.loading = true;
-      })
+      .addCase(fetchChatroomClasses.pending, (state) => { state.loading = true; })
       .addCase(fetchChatroomClasses.fulfilled, (state, action: PayloadAction<ClassRoom[]>) => {
         state.classes = action.payload;
         state.loading = false;
       })
-      .addCase(fetchChatroomClasses.rejected, (state) => {
-        state.loading = false;
-      })
-      .addCase(fetchMeetingParticipants.pending, (state) => {
-        state.loading = true;
-      })
+      .addCase(fetchChatroomClasses.rejected, (state) => { state.loading = false; })
+      .addCase(fetchMeetingParticipants.pending, (state) => { state.loading = true; })
       .addCase(fetchMeetingParticipants.fulfilled, (state, action: PayloadAction<SessionParticipant[]>) => {
         state.meetingCandidates = action.payload;
         state.loading = false;
       })
-      .addCase(fetchMeetingParticipants.rejected, (state) => {
+      .addCase(fetchMeetingParticipants.rejected, (state) => { state.loading = false; })
+      .addCase(startSession.pending, (state) => { state.loading = true; })
+      .addCase(startSession.fulfilled, (state, action: PayloadAction<ActiveSession>) => {
+        state.activeSession = action.payload;
         state.loading = false;
+      })
+      .addCase(startSession.rejected, (state) => { state.loading = false; })
+      .addCase(fetchSessionState.fulfilled, (state, action) => {
+        state.activeSession = action.payload;
+      })
+      .addCase(sendMessage.fulfilled, (state, action) => {
+        if (state.activeSession) {
+          state.activeSession.messages.push(action.payload);
+        }
+      })
+      .addCase(endSession.fulfilled, (state) => {
+          state.activeSession = null;
+          state.selectedStudents = [];
+          state.selectedTeachers = [];
       });
   },
 });
 
 export const {
-  setSelectedClass,
-  toggleStudentSelection,
-  toggleTeacherSelection,
-  startSession,
-  startMeeting,
-  moveParticipant,
-  removeStudentFromSession,
-  addStudentToSession,
-  raiseHand,
-  lowerHand,
-  clearAllRaisedHands,
-  sendReaction,
-  clearReactions,
-  createPoll,
-  votePoll,
-  endPoll,
-  endSession,
-  updateStudentPresence,
-  createQuiz,
-  answerQuiz,
-  nextQuizQuestion,
-  updateQuizTimer,
-  endQuiz,
-  awardReward,
-  awardParticipationPoints,
-  sendMessage,
-  shareDocument,
-  clearChatMessages,
-  setTimer,
-  toggleTimer,
-  resetTimer,
-  stopTimer,
-  tickTimer,
-  toggleMute,
-  muteAllStudents,
-  unmuteAllStudents,
-  toggleSpotlight,
-  createBreakoutRooms,
-  endBreakoutRooms,
-  breakoutTimerTick,
+  setSelectedClass, toggleStudentSelection, toggleTeacherSelection, moveParticipant, removeStudentFromSession, addStudentToSession, raiseHand, lowerHand, clearAllRaisedHands, sendReaction, clearReactions, createPoll, votePoll, endPoll, updateStudentPresence, createQuiz, answerQuiz, nextQuizQuestion, updateQuizTimer, endQuiz, awardReward, awardParticipationPoints, clearChatMessages, setTimer, toggleTimer, resetTimer, stopTimer, tickTimer, toggleMute, muteAllStudents, unmuteAllStudents, toggleSpotlight, createBreakoutRooms, endBreakoutRooms, breakoutTimerTick
 } = sessionSlice.actions;
 
 export default sessionSlice.reducer;
