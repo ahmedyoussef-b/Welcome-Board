@@ -124,112 +124,112 @@ export default function SessionRoom() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b sticky top-0 z-40 shadow-sm">
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-xl font-semibold">{activeSession.className}</h1>
-                <p className="text-sm text-gray-500">
-                  Démarrée à {new Date(activeSession.startTime).toLocaleTimeString('fr-FR', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
-                </p>
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <div className="bg-white border-b sticky top-0 z-40 shadow-sm">
+          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between h-16">
+              <div className="flex items-center gap-4">
+                <div>
+                  <h1 className="text-xl font-semibold">{activeSession.className}</h1>
+                  <p className="text-sm text-gray-500">
+                    Démarrée à {new Date(activeSession.startTime).toLocaleTimeString('fr-FR', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </p>
+                </div>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {onlineCount}/{totalCount} en ligne
+                </Badge>
+                <TimerDisplay />
               </div>
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {onlineCount}/{totalCount} en ligne
-              </Badge>
-              <TimerDisplay />
+              
+              <div className="flex items-center gap-4">
+                  <TabsList>
+                      <TabsTrigger value="overview" className="flex items-center gap-2">
+                      <Video className="w-4 h-4" />
+                      Participants
+                      </TabsTrigger>
+                      <TabsTrigger value="interactions" className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" />
+                      Interactions
+                      </TabsTrigger>
+                      <TabsTrigger value="activities" className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4" />
+                      Activités
+                      </TabsTrigger>
+                      {activeSession.sessionType === 'class' && (
+                          <>
+                              <TabsTrigger value="quizzes" className="flex items-center gap-2">
+                                  <Brain className="w-4 h-4" />
+                                  Quiz
+                              </TabsTrigger>
+                              <TabsTrigger value="rewards" className="flex items-center gap-2">
+                                  <Trophy className="w-4 h-4" />
+                                  Récompenses
+                              </TabsTrigger>
+                          </>
+                      )}
+                  </TabsList>
+              </div>
+
+
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm">
+                  <Settings className="w-4 h-4" />
+                </Button>
+                {isHost && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    onClick={handleEndSession}
+                  >
+                    <LogOut className="w-4 h-4 mr-1" />
+                    Terminer
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+                <TabsContent value="overview" className="mt-0">
+                   <OverviewTab activeSession={activeSession} user={user} />
+                </TabsContent>
+                
+                <TabsContent value="interactions" className="mt-0">
+                  <InteractionsTab isHost={isHost} user={user} />
+                </TabsContent>
+                
+                <TabsContent value="activities" className="mt-0">
+                  <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
+                </TabsContent>
+
+                {activeSession.sessionType === 'class' && (
+                    <>
+                      <TabsContent value="quizzes" className="mt-0">
+                          <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
+                      </TabsContent>
+                      <TabsContent value="rewards" className="mt-0">
+                          <RewardsTab isHost={isHost} />
+                      </TabsContent>
+                    </>
+                )}
             </div>
             
-            <div className="flex items-center gap-4">
-                <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-                    <TabsList>
-                        <TabsTrigger value="overview" className="flex items-center gap-2">
-                        <Video className="w-4 h-4" />
-                        Participants
-                        </TabsTrigger>
-                        <TabsTrigger value="interactions" className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4" />
-                        Interactions
-                        </TabsTrigger>
-                        <TabsTrigger value="activities" className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4" />
-                        Activités
-                        </TabsTrigger>
-                        {activeSession.sessionType === 'class' && (
-                            <>
-                                <TabsTrigger value="quizzes" className="flex items-center gap-2">
-                                    <Brain className="w-4 h-4" />
-                                    Quiz
-                                </TabsTrigger>
-                                <TabsTrigger value="rewards" className="flex items-center gap-2">
-                                    <Trophy className="w-4 h-4" />
-                                    Récompenses
-                                </TabsTrigger>
-                            </>
-                        )}
-                    </TabsList>
-                </Tabs>
-            </div>
-
-
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4" />
-              </Button>
-              {isHost && (
-                <Button 
-                  variant="destructive" 
-                  size="sm" 
-                  onClick={handleEndSession}
-                >
-                  <LogOut className="w-4 h-4 mr-1" />
-                  Terminer
-                </Button>
-              )}
-            </div>
+            <SessionSidebar 
+              isHost={isHost} 
+              currentUserParticipant={currentUserParticipant}
+              activeSession={activeSession}
+              user={user}
+            />
           </div>
         </div>
-      </div>
-
-      <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-              <TabsContent value="overview" className="mt-0">
-                 <OverviewTab activeSession={activeSession} user={user} />
-              </TabsContent>
-              
-              <TabsContent value="interactions" className="mt-0">
-                <InteractionsTab isHost={isHost} user={user} />
-              </TabsContent>
-              
-              <TabsContent value="activities" className="mt-0">
-                <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-              </TabsContent>
-
-              {activeSession.sessionType === 'class' && (
-                  <>
-                    <TabsContent value="quizzes" className="mt-0">
-                        <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-                    </TabsContent>
-                    <TabsContent value="rewards" className="mt-0">
-                        <RewardsTab isHost={isHost} />
-                    </TabsContent>
-                  </>
-              )}
-          </div>
-          
-          <SessionSidebar 
-            isHost={isHost} 
-            currentUserParticipant={currentUserParticipant}
-            activeSession={activeSession}
-            user={user}
-          />
-        </div>
-      </div>
+      </Tabs>
     </div>
   );
 }
