@@ -5,7 +5,8 @@ import { Role, Prisma } from '@prisma/client';
 
 // Define type for student details as selected in the query
 interface StudentDetails {
-  id: string;
+  id: string; // This is the Student's own ID
+  userId: string; // This is the ID from the related User model
   name: string;
   surname: string;
   user: {
@@ -16,16 +17,16 @@ interface StudentDetails {
 
 // Define type for Class including students, matching the select in include
 interface ClassWithStudents extends Prisma.ClassGetPayload<{
-  include: { students: { select: { id: true; name: true; surname: true; user: { select: { email: true; img: true; }; }; }; orderBy: { name: 'asc'; }; }; };
+  include: { students: { select: { id: true; userId: true; name: true; surname: true; user: { select: { email: true; img: true; }; }; }; orderBy: { name: 'asc'; }; }; };
 }> {
   students: StudentDetails[];
 }
 export async function GET() {
   try {
-    const classesWithStudents: ClassWithStudents[] = await prisma.class.findMany({
+    const classesWithStudents = await prisma.class.findMany({
       include: {
         students: {
-          select: { id: true, name: true, surname: true, user: { select: { email: true, img: true } } },
+          select: { id: true, userId: true, name: true, surname: true, user: { select: { email: true, img: true } } },
           orderBy: { name: 'asc' },
         },
       },
@@ -36,7 +37,7 @@ export async function GET() {
       id: cls.id,
       name: cls.name,
       students: cls.students.map((s: StudentDetails) => ({ // Explicitly type s
-        id: s.id, // Assuming student id is string
+        id: s.userId, // Use the USER's ID for the session participant
         name: `${s.name} ${s.surname}`,
         email: s.user?.email || 'N/A',
         img: s.user?.img,

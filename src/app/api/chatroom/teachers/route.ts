@@ -40,7 +40,7 @@ export async function GET() {
       orderBy: [{ surname: 'asc' }, { name: 'asc' }],
     }) as PrismaTeacherWithUser[];
     const participants = teachers.map((t) => ({
-      id: t.id,
+      id: t.userId, // Use the USER's ID for the session participant
       name: `${t.name} ${t.surname}`,
       email: t.user?.email || 'N/A',
       img: t.user?.img || t.img,
