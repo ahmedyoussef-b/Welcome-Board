@@ -15,8 +15,7 @@ import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { selectAllSalles } from '@/lib/redux/features/classrooms/classroomsSlice';
 import { addTeacherConstraint, removeTeacherConstraint, selectTeacherConstraints } from '@/lib/redux/features/teacherConstraintsSlice';
 import { setSubjectRequirement, selectSubjectRequirements, setSubjectTimePreference } from '@/lib/redux/features/subjectRequirementsSlice';
-import type { TeacherConstraint, SubjectRequirement } from '@/types';
-import { Day } from '@prisma/client';
+import type { TeacherConstraint, SubjectRequirement, Day } from '@/types';
 
 const dayLabels: Record<Day, string> = { MONDAY: 'Lundi', TUESDAY: 'Mardi', WEDNESDAY: 'Mercredi', THURSDAY: 'Jeudi', FRIDAY: 'Vendredi', SATURDAY: 'Samedi', SUNDAY: 'Dimanche' };
 
