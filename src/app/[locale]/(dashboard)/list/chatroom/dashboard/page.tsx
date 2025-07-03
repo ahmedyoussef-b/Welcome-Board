@@ -1,9 +1,11 @@
+
 // src/app/[locale]/(dashboard)/list/chatroom/dashboard/page.tsx
 'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { LogOut, BarChart3, MessageCircle, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from "@/hooks/redux-hooks";
 import { useLogoutMutation } from "@/lib/redux/api/authApi";
@@ -53,7 +55,11 @@ export default function DashboardPage() {
   };
 
   const handleClassSelect = (classroom: ClassRoom) => {
-    dispatch(setSelectedClass(classroom));
+    if (selectedClass?.id === classroom.id) {
+        dispatch(setSelectedClass(null));
+    } else {
+        dispatch(setSelectedClass(classroom));
+    }
   };
 
   if ((loading && classes.length === 0) || !user) {
@@ -65,10 +71,10 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header - Always shown */}
-        <div className="flex items-center justify-between mb-8">
+    <div className="min-h-screen bg-background text-foreground p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img
               src={user.img || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
@@ -76,10 +82,10 @@ export default function DashboardPage() {
               className="w-12 h-12 rounded-full"
             />
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold">
                 Bonjour, {user.name}
               </h1>
-              <p className="text-gray-600">Tableau de bord professeur</p>
+              <p className="text-muted-foreground">Tableau de bord professeur</p>
             </div>
           </div>
           
@@ -113,27 +119,44 @@ export default function DashboardPage() {
             </Button>
           </div>
         </div>
-        
-        {/* Conditional View: Class Grid or Student Selector */}
-        {selectedClass ? (
-          <StudentSelector classroom={selectedClass} />
-        ) : (
-          loading ? (
-            <div className="flex justify-center items-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {classes.map((classroom) => (
-                <ClassCard
-                  key={classroom.id}
-                  classroom={classroom}
-                  isSelected={false} // isSelected is always false when showing the grid
-                  onSelect={handleClassSelect}
-                />
-              ))}
-            </div>
-          )
+
+        {/* Step 1: Class Selection Card */}
+        <Card className="shadow-lg">
+          <CardHeader>
+            <CardTitle>Étape 1: Sélectionner une classe</CardTitle>
+            <CardDescription>Choisissez la classe pour laquelle vous souhaitez démarrer une session.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center items-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {classes.map((classroom) => (
+                  <ClassCard
+                    key={classroom.id}
+                    classroom={classroom}
+                    isSelected={selectedClass?.id === classroom.id}
+                    onSelect={handleClassSelect}
+                  />
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Step 2: Student Selector Card (visible only when a class is selected) */}
+        {selectedClass && (
+          <Card className="shadow-lg animate-in fade-in-0">
+             <CardHeader>
+              <CardTitle>Étape 2: Sélectionner les élèves</CardTitle>
+              <CardDescription>Cochez les élèves que vous souhaitez inviter à la session interactive.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <StudentSelector classroom={selectedClass} />
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
