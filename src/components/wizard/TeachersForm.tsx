@@ -6,7 +6,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Button } from '@/components/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { BookOpen, User, RotateCcw, Save } from 'lucide-react';
-import type { TeacherWithDetails, ClassWithGrade, Subject } from '@/types';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { selectAllProfesseurs } from '@/lib/redux/features/teachers/teachersSlice';
 import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
@@ -143,4 +142,5 @@ const TeachersForm: React.FC = () => {
     </div>
   );
 };
+
 export default TeachersForm;
