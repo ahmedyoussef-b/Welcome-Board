@@ -5,7 +5,6 @@ import Table from "@/components/Table";
 import TableSearch from "@/components/TableSearch";
 import prisma from "@/lib/prisma";
 import { ITEM_PER_PAGE } from "@/lib/settings";
-import { type Student, type Exam, type Assignment, type Lesson, type Teacher, type Class, type Subject, type Result } from "@/types/index"; 
 import Image from "next/image";
 import { getServerSession } from "@/lib/auth-utils";
 import { Prisma, Role } from "@prisma/client";
@@ -117,6 +116,9 @@ const ResultListPage = async ({
 
   const pageParam = searchParams?.page;
   const p = pageParam ? parseInt(Array.isArray(pageParam) ? pageParam[0] : pageParam) : 1;
+  const take = ITEM_PER_PAGE;
+  const skip = (p - 1) * take;
+
   const query: Prisma.ResultWhereInput = {};
 
   const studentIdParam = searchParams?.studentId;
@@ -153,57 +155,66 @@ const ResultListPage = async ({
     }
   }
 
-  const [allDataRes, count] = await prisma.$transaction([
+  const [resultsForSorting, count] = await prisma.$transaction([
     prisma.result.findMany({
       where: query,
-      include: {
-        student: {
-          select: { id: true, name: true, surname: true }
-        },
-        exam: {
-          select: {
-            id: true,
-            title: true,
-            startTime: true,
-            lesson: { 
-              select: {
-                subject: { select: { name: true } },
-                class: { select: { name: true } },
-                teacher: { select: { name: true, surname: true } },
-              },
-            },
-          },
-        },
-        assignment: {
-          select: {
-            id: true,
-            title: true,
-            dueDate: true,
-            lesson: { 
-              select: {
-                subject: { select: { name: true } },
-                class: { select: { name: true } },
-                teacher: { select: { name: true, surname: true } },
-              },
-            },
-          }
-        }
+      select: {
+        id: true,
+        exam: { select: { startTime: true } },
+        assignment: { select: { dueDate: true } },
       },
     }),
     prisma.result.count({ where: query }),
   ]);
 
-  // Sort all results by date descending
-  (allDataRes as ResultWithDetails[]).sort((a, b) => {
+  const sortedResults = resultsForSorting.sort((a, b) => {
     const dateA = a.exam ? new Date(a.exam.startTime) : new Date(a.assignment!.dueDate);
     const dateB = b.exam ? new Date(b.exam.startTime) : new Date(b.assignment!.dueDate);
     return dateB.getTime() - dateA.getTime();
   });
 
-  // Manually paginate the sorted results
-  const dataRes = allDataRes.slice(ITEM_PER_PAGE * (p - 1), ITEM_PER_PAGE * p);
+  const paginatedResultIds = sortedResults.slice(skip, skip + take).map(r => r.id);
 
-  const data: ResultListDisplayItem[] = (dataRes as ResultWithDetails[]).map((item) => {
+  const dataRes = paginatedResultIds.length > 0 ? await prisma.result.findMany({
+    where: {
+      id: { in: paginatedResultIds }
+    },
+    include: {
+      student: { select: { id: true, name: true, surname: true } },
+      exam: {
+        select: {
+          id: true,
+          title: true,
+          startTime: true,
+          lesson: { 
+            select: {
+              subject: { select: { name: true } },
+              class: { select: { name: true } },
+              teacher: { select: { name: true, surname: true } },
+            },
+          },
+        },
+      },
+      assignment: {
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          lesson: { 
+            select: {
+              subject: { select: { name: true } },
+              class: { select: { name: true } },
+              teacher: { select: { name: true, surname: true } },
+            },
+          },
+        }
+      }
+    },
+  }) : [];
+  
+  const finalSortedData = paginatedResultIds.map(id => dataRes.find(d => d.id === id)).filter((d): d is ResultWithDetails => !!d);
+
+  const data: ResultListDisplayItem[] = finalSortedData.map((item) => {
     const isExam = !!item.exam;
     const assessment = isExam ? item.exam : item.assignment;
 
@@ -244,7 +255,6 @@ const ResultListPage = async ({
       teacherSurname: assessment.lesson.teacher.surname,
     };
   }).filter((item): item is ResultListDisplayItem => item !== null);
-
 
   return (
     <div className="bg-white p-4 rounded-md flex-1 m-4 mt-0">
