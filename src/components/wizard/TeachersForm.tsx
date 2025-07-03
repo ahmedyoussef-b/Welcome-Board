@@ -1,3 +1,4 @@
+
 // src/components/wizard/TeachersForm.tsx
 'use client';
 
@@ -13,9 +14,9 @@ import { selectAllClasses } from '@/lib/redux/features/classes/classesSlice';
 import { selectAllMatieres } from '@/lib/redux/features/subjects/subjectsSlice';
 import { updateTeacherAssignment, selectTeacherAssignments, clearAllAssignments } from '@/lib/redux/features/teacherAssignmentsSlice';
 import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '../ui/checkbox';
-import { Label } from '../ui/label';
-import { ScrollArea } from '../ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 
 
@@ -143,5 +144,4 @@ const TeachersForm: React.FC = () => {
     </div>
   );
 };
-
 export default TeachersForm;
