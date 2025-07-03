@@ -2,9 +2,10 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Monitor, Pencil, MicOff, Mic } from 'lucide-react';
+import { LayoutGrid, Monitor, Pencil, MicOff, Mic, Users } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { muteAllStudents, unmuteAllStudents } from '@/lib/redux/slices/sessionSlice';
+import CreateBreakoutRoomsDialog from './CreateBreakoutRoomsDialog';
 
 type ViewMode = 'grid' | 'screenShare' | 'whiteboard';
 
@@ -33,7 +34,7 @@ export default function HostToolbar({ viewMode, onSetViewMode, onStartScreenShar
   };
 
   return (
-    <div className="flex-shrink-0 flex items-center justify-center gap-2 p-2 mb-4 rounded-lg bg-card border shadow-sm">
+    <div className="flex-shrink-0 flex items-center justify-center gap-2 p-2 mb-4 rounded-lg bg-card border shadow-sm flex-wrap">
       <Button
         variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
         size="sm"
@@ -61,6 +62,7 @@ export default function HostToolbar({ viewMode, onSetViewMode, onStartScreenShar
         <Pencil className="w-4 h-4" />
         Tableau Blanc
       </Button>
+       <CreateBreakoutRoomsDialog />
       <Button
         variant="outline"
         size="sm"

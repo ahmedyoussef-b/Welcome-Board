@@ -10,6 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import BreakoutRoomsManagement from '../BreakoutRoomsManagement';
 
 const DraggableVideoTile = ({ participant, user, isHost }: { participant: any, user: SafeUser | null, isHost: boolean }) => {
     const dispatch = useAppDispatch();
@@ -67,6 +68,11 @@ export default function OverviewTab({ activeSession, user }: OverviewTabProps) {
         const newIndex = activeSession.participants.findIndex(p => p.id === over.id);
         dispatch(moveParticipant({ fromIndex: oldIndex, toIndex: newIndex }));
     }
+  }
+
+  // Host view when breakout rooms are active
+  if (isHost && activeSession.breakoutRooms && activeSession.breakoutRooms.length > 0) {
+    return <BreakoutRoomsManagement />;
   }
 
   if (spotlightedParticipantId) {

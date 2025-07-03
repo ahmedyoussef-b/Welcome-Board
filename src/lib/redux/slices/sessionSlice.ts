@@ -24,14 +24,15 @@ export interface SessionParticipant {
   points: number;
   badges: Badge[];
   isMuted?: boolean;
+  breakoutRoomId?: string | null;
 }
 
 export interface ClassRoom {
   id: number;
   name: string;
   students: SessionParticipant[];
-  abbreviation: string | null; // Keep nullable as per previous definition
-  capacity: number; // Change to number (non-nullable)
+  abbreviation: string | null; 
+  capacity: number; 
   building: string | null;
 }
 
@@ -98,6 +99,12 @@ export interface RewardAction {
   timestamp: string;
 }
 
+export interface BreakoutRoom {
+  id: string;
+  name: string;
+  participantIds: string[];
+}
+
 export interface ActiveSession {
   id: string;
   sessionType: 'class' | 'meeting';
@@ -118,6 +125,11 @@ export interface ActiveSession {
     isActive: boolean;
   } | null;
   spotlightedParticipantId?: string | null;
+  breakoutRooms: BreakoutRoom[] | null;
+  breakoutTimer: {
+      duration: number;
+      remaining: number;
+  } | null;
 }
 
 export interface ChatMessage {
@@ -334,6 +346,7 @@ const sessionSlice = createSlice({
           points: s.points || 0,
           badges: s.badges || [],
           isMuted: false,
+          breakoutRoomId: null,
         })),
         startTime: new Date().toISOString(),
         raisedHands: [],
@@ -345,6 +358,8 @@ const sessionSlice = createSlice({
         rewardActions: [],
         classTimer: null,
         spotlightedParticipantId: null,
+        breakoutRooms: null,
+        breakoutTimer: null,
       };
       state.chatMessages = [];
     },
@@ -355,7 +370,7 @@ const sessionSlice = createSlice({
             sessionType: 'meeting',
             classId: 'admin-meeting', 
             className: meetingTitle,
-            participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [], isMuted: false })),
+            participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [], isMuted: false, breakoutRoomId: null })),
             startTime: new Date().toISOString(),
             raisedHands: [],
             reactions: [],
@@ -364,6 +379,8 @@ const sessionSlice = createSlice({
             rewardActions: [],
             classTimer: null,
             spotlightedParticipantId: null,
+            breakoutRooms: null,
+            breakoutTimer: null,
         };
         state.chatMessages = [];
     },
@@ -392,6 +409,7 @@ const sessionSlice = createSlice({
           points: action.payload.points || 0,
           badges: action.payload.badges || [],
           isMuted: false,
+          breakoutRoomId: null,
         });
       }
     },
@@ -806,6 +824,54 @@ const sessionSlice = createSlice({
             }
         }
     },
+    createBreakoutRooms: (state, action: PayloadAction<{ numberOfRooms: number, durationMinutes: number }>) => {
+        if (!state.activeSession) return;
+        const { numberOfRooms, durationMinutes } = action.payload;
+        const students = state.activeSession.participants.filter(p => p.role === 'student');
+        const shuffledStudents = [...students].sort(() => Math.random() - 0.5);
+
+        const rooms: BreakoutRoom[] = Array.from({ length: numberOfRooms }, (_, i) => ({
+            id: `breakout_${Date.now()}_${i}`,
+            name: `Salle ${i + 1}`,
+            participantIds: [],
+        }));
+        
+        shuffledStudents.forEach((student, index) => {
+            const roomIndex = index % numberOfRooms;
+            rooms[roomIndex].participantIds.push(student.id);
+            const participantInSession = state.activeSession?.participants.find(p => p.id === student.id);
+            if (participantInSession) {
+                participantInSession.breakoutRoomId = rooms[roomIndex].id;
+            }
+        });
+
+        state.activeSession.breakoutRooms = rooms;
+        state.activeSession.breakoutTimer = {
+            duration: durationMinutes * 60,
+            remaining: durationMinutes * 60,
+        };
+    },
+    endBreakoutRooms: (state) => {
+        if (state.activeSession) {
+            state.activeSession.breakoutRooms = null;
+            state.activeSession.breakoutTimer = null;
+            state.activeSession.participants.forEach(p => {
+                p.breakoutRoomId = null;
+            });
+        }
+    },
+    breakoutTimerTick: (state) => {
+        if (state.activeSession?.breakoutTimer && state.activeSession.breakoutTimer.remaining > 0) {
+            state.activeSession.breakoutTimer.remaining--;
+        } else if (state.activeSession?.breakoutTimer) {
+            // Timer finished, end the breakout rooms
+            state.activeSession.breakoutRooms = null;
+            state.activeSession.breakoutTimer = null;
+            state.activeSession.participants.forEach(p => {
+                p.breakoutRoomId = null;
+            });
+        }
+    }
   },
   extraReducers: (builder) => {
     builder
@@ -870,6 +936,9 @@ export const {
   muteAllStudents,
   unmuteAllStudents,
   toggleSpotlight,
+  createBreakoutRooms,
+  endBreakoutRooms,
+  breakoutTimerTick,
 } = sessionSlice.actions;
 
 export default sessionSlice.reducer;

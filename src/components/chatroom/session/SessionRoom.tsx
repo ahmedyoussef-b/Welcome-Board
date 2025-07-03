@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Video, LogOut } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
-import { updateStudentPresence, tickTimer } from '@/lib/redux/slices/sessionSlice';
+import { updateStudentPresence, tickTimer, breakoutTimerTick } from '@/lib/redux/slices/sessionSlice';
 import TimerDisplay from './TimerDisplay';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
 import { useToast } from "@/hooks/use-toast";
@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import HostToolbar from './HostToolbar';
 import ScreenShareView from './ScreenShareView';
 import Whiteboard from './Whiteboard';
+import BreakoutRoomView from './BreakoutRoomView';
 
 interface SessionRoomProps {
     onEndSession: () => void;
@@ -56,7 +57,7 @@ export default function SessionRoom({ onEndSession }: SessionRoomProps) {
     return () => clearInterval(interval);
   }, [activeSession, dispatch]);
 
-  // Timer tick effect
+  // Timer tick effect for main class timer
   useEffect(() => {
     if (!activeSession?.classTimer?.isActive || activeSession.classTimer.remaining <= 0) {
       return;
@@ -69,6 +70,18 @@ export default function SessionRoom({ onEndSession }: SessionRoomProps) {
     return () => clearInterval(interval);
   }, [activeSession?.classTimer?.isActive, activeSession?.classTimer?.remaining, dispatch]);
   
+  // Timer tick effect for breakout rooms
+  useEffect(() => {
+      if (!activeSession?.breakoutTimer || activeSession.breakoutTimer.remaining <= 0) {
+          return;
+      }
+      const interval = setInterval(() => {
+          dispatch(breakoutTimerTick());
+      }, 1000);
+
+      return () => clearInterval(interval);
+  }, [activeSession?.breakoutTimer, dispatch]);
+
   const handleStartScreenShare = async () => {
     if (screenStream) {
       // If already sharing, just switch view
@@ -105,7 +118,8 @@ export default function SessionRoom({ onEndSession }: SessionRoomProps) {
   if (!activeSession || !user) {
     return <div>Chargement de la session...</div>;
   }
-
+  
+  const currentUserParticipant = activeSession.participants.find(p => p.id === user.id);
   const isHost = 
     (user?.role === 'TEACHER' && activeSession.sessionType === 'class') ||
     (user?.role === 'ADMIN' && activeSession.sessionType === 'meeting');
@@ -116,6 +130,11 @@ export default function SessionRoom({ onEndSession }: SessionRoomProps) {
       return <div>Accès non autorisé à cette session.</div>
   }
 
+  // If user is in a breakout room, show that view
+  if (currentUserParticipant?.breakoutRoomId) {
+    return <BreakoutRoomView user={user} />;
+  }
+  
   const renderMainContent = () => {
     switch(viewMode) {
         case 'screenShare':
