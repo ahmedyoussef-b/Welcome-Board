@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ import SessionSidebar from './SessionSidebar';
 
 export default function SessionRoom() {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { activeSession } = useAppSelector(state => state.session);
   const user = useAppSelector(selectCurrentUser);
   const [selectedTab, setSelectedTab] = useState('overview');
@@ -100,6 +102,13 @@ export default function SessionRoom() {
       title: 'Session terminée',
       message: 'La session a été fermée et le rapport a été généré.',
     }));
+
+    // Redirect to the initial configuration page
+    if (user.role === 'TEACHER') {
+        router.replace('/fr/list/chatroom/dashboard');
+    } else if (user.role === 'ADMIN') {
+        router.replace('/fr/list/chatroom/chat/admin');
+    }
   };
 
   if (!activeSession) {
@@ -124,7 +133,7 @@ export default function SessionRoom() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-col h-screen">
         <div className="bg-white border-b sticky top-0 z-40 shadow-sm">
           <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
@@ -193,41 +202,43 @@ export default function SessionRoom() {
             </div>
           </div>
         </div>
+        
+        <div className="flex-grow overflow-y-auto">
+            <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                    <div className="lg:col-span-3">
+                        <TabsContent value="overview" className="mt-0">
+                        <OverviewTab activeSession={activeSession} user={user} />
+                        </TabsContent>
+                        
+                        <TabsContent value="interactions" className="mt-0">
+                        <InteractionsTab isHost={isHost} user={user} />
+                        </TabsContent>
+                        
+                        <TabsContent value="activities" className="mt-0">
+                        <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
+                        </TabsContent>
 
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-                <TabsContent value="overview" className="mt-0">
-                   <OverviewTab activeSession={activeSession} user={user} />
-                </TabsContent>
-                
-                <TabsContent value="interactions" className="mt-0">
-                  <InteractionsTab isHost={isHost} user={user} />
-                </TabsContent>
-                
-                <TabsContent value="activities" className="mt-0">
-                  <ActivitiesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-                </TabsContent>
-
-                {activeSession.sessionType === 'class' && (
-                    <>
-                      <TabsContent value="quizzes" className="mt-0">
-                          <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
-                      </TabsContent>
-                      <TabsContent value="rewards" className="mt-0">
-                          <RewardsTab isHost={isHost} />
-                      </TabsContent>
-                    </>
-                )}
+                        {activeSession.sessionType === 'class' && (
+                            <>
+                            <TabsContent value="quizzes" className="mt-0">
+                                <QuizzesTab currentUserParticipant={currentUserParticipant} isHost={isHost} />
+                            </TabsContent>
+                            <TabsContent value="rewards" className="mt-0">
+                                <RewardsTab isHost={isHost} />
+                            </TabsContent>
+                            </>
+                        )}
+                    </div>
+                    
+                    <SessionSidebar 
+                    isHost={isHost} 
+                    currentUserParticipant={currentUserParticipant}
+                    activeSession={activeSession}
+                    user={user}
+                    />
+                </div>
             </div>
-            
-            <SessionSidebar 
-              isHost={isHost} 
-              currentUserParticipant={currentUserParticipant}
-              activeSession={activeSession}
-              user={user}
-            />
-          </div>
         </div>
       </Tabs>
     </div>
