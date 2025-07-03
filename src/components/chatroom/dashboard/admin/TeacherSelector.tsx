@@ -32,12 +32,12 @@ export default function TeacherSelector({ teachers }: TeacherSelectorProps) {
   return (
     <div className="space-y-4">
         <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               placeholder="Rechercher un professeur..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-gray-900 border-gray-700 text-white placeholder:text-gray-500 focus:ring-sky-500"
+              className="pl-10"
             />
         </div>
         
@@ -52,11 +52,11 @@ export default function TeacherSelector({ teachers }: TeacherSelectorProps) {
                 key={teacher.id}
                 onClick={() => !isDisabled && handleTeacherToggle(teacher.id)}
                 className={cn(
-                  "flex items-center space-x-4 p-4 rounded-lg border-2 transition-all duration-200 cursor-pointer",
+                  "flex items-center space-x-4 p-3 rounded-lg border-2 transition-all duration-200 cursor-pointer",
                   isDisabled 
-                    ? "bg-gray-800/30 border-gray-700/50 opacity-60" 
-                    : "bg-gray-800 border-gray-700 hover:border-sky-500 hover:bg-gray-700/50 shadow-lg",
-                  isSelected && "border-sky-400 ring-2 ring-sky-400/50"
+                    ? "bg-muted/50 border-transparent opacity-60" 
+                    : "bg-card hover:bg-muted/50",
+                  isSelected && "border-primary bg-primary/10"
                 )}
               >
                 <Checkbox
@@ -64,7 +64,6 @@ export default function TeacherSelector({ teachers }: TeacherSelectorProps) {
                   checked={isSelected}
                   onCheckedChange={() => handleTeacherToggle(teacher.id)}
                   disabled={isDisabled}
-                  className="data-[state=checked]:bg-sky-500 data-[state=checked]:border-sky-400"
                 />
                 
                 <div className="flex-1 min-w-0">
@@ -75,22 +74,21 @@ export default function TeacherSelector({ teachers }: TeacherSelectorProps) {
                       className="w-10 h-10 rounded-full"
                     />
                     <div>
-                      <p className="font-medium text-gray-100">{teacher.name}</p>
-                      <p className="text-sm text-gray-400">{teacher.email}</p>
+                      <p className="font-medium text-foreground">{teacher.name}</p>
+                      <p className="text-sm text-muted-foreground">{teacher.email}</p>
                     </div>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant="outline"
-                    className={
-                      teacher.isOnline 
-                        ? "bg-green-600/20 text-green-300 border-green-600/50" 
-                        : "bg-gray-600/20 text-gray-400 border-gray-600/50"
-                    }
+                    variant={teacher.isOnline ? "default" : "secondary"}
+                    className={cn(
+                      "flex items-center gap-1.5",
+                      teacher.isOnline && "bg-green-500 hover:bg-green-600"
+                    )}
                   >
-                    <div className={cn("w-2 h-2 rounded-full mr-2", teacher.isOnline ? "bg-green-400" : "bg-gray-500")} />
+                    <div className={cn("w-2 h-2 rounded-full", teacher.isOnline ? "bg-white/80" : "bg-muted-foreground")} />
                     {teacher.isOnline ? "En ligne" : "Hors ligne"}
                   </Badge>
                 </div>
@@ -99,8 +97,8 @@ export default function TeacherSelector({ teachers }: TeacherSelectorProps) {
             })}
             
             {filteredTeachers.length === 0 && (
-              <div className="text-center py-16 text-gray-500">
-                <Search className="w-12 h-12 mx-auto mb-4 text-gray-600" />
+              <div className="text-center py-16 text-muted-foreground">
+                <Search className="w-12 h-12 mx-auto mb-4" />
                 <p>Aucun professeur trouvé</p>
               </div>
             )}
