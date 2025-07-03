@@ -129,7 +129,8 @@ async function main() {
   for (const subject of coreSubjects) {
     for (let i = 1; i <= 3; i++) {
       const sanitizedSubjectName = subject.name.substring(0, 4).toLowerCase().replace(/\s+/g, '');
-      const user = await prisma.user.create({ data: { email: `prof.${sanitizedSubjectName}${i}@example.com`, username: `prof.${sanitizedSubjectName}${i}`, password: hashedPassword, role: Role.TEACHER, name: `Prof ${subject.name} ${i}`, active: true } });
+      const username = `prof.${sanitizedSubjectName}${i}`;
+      const user = await prisma.user.create({ data: { email: `${username}@example.com`, username: username, password: hashedPassword, role: Role.TEACHER, name: `Prof ${subject.name} ${i}`, active: true } });
       createdTeachers.push(await prisma.teacher.create({ data: { userId: user.id, name: 'Professeur', surname: `${subject.name} ${i}`, sex: i % 2 === 0 ? UserSex.FEMALE : UserSex.MALE, birthday: new Date(), bloodType: 'O-', subjects: { connect: { id: subject.id } } } }));
     }
   }
