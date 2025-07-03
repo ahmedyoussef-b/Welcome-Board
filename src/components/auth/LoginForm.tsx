@@ -15,11 +15,11 @@ import { useEffect } from "react";
 import type { SerializedError } from '@reduxjs/toolkit';
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { Spinner } from "@/components/ui/spinner";
-// useI18n, useCurrentLocale ne sont plus nécessaires
+import { cn } from "@/lib/utils";
 
 const loginSchema = z.object({
-  email: z.string().email({ message: "Adresse e-mail invalide." }), // Message en français
-  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères." }), // Message en français
+  email: z.string().email({ message: "Adresse e-mail invalide." }),
+  password: z.string().min(6, { message: "Le mot de passe doit contenir au moins 6 caractères." }),
 });
 
 type LoginFormData = z.infer<typeof loginSchema>;
@@ -44,29 +44,28 @@ export function LoginForm() {
   const [login, { isLoading, isSuccess, isError, error: loginErrorData }] = useLoginMutation();
   const { toast } = useToast();
   const router = useRouter(); 
-  // t et locale ne sont plus nécessaires
 
   useEffect(() => {
     if (isSuccess) {
       toast({
-        title: "Connexion réussie", // Texte en français
-        description: "Vous êtes maintenant connecté. Redirection...", // Texte en français
+        title: "Connexion réussie",
+        description: "Vous êtes maintenant connecté. Redirection...",
       });
     }
     if (isError && loginErrorData) {
-      let title = "Échec de la connexion"; // Texte en français
-      let description = "Une erreur inattendue s'est produite lors de la connexion."; // Texte en français
+      let title = "Échec de la connexion";
+      let description = "Une erreur inattendue s'est produite lors de la connexion.";
 
        if (isFetchBaseQueryError(loginErrorData)) {
         const errorData = loginErrorData.data as ApiErrorData;
         if (loginErrorData.status === 401 && errorData?.message === "Invalid credentials") {
-          title = "Identifiants invalides"; // Texte en français
-          description = "Veuillez vérifier votre e-mail et votre mot de passe et réessayer."; // Texte en français
+          title = "Identifiants invalides";
+          description = "Veuillez vérifier votre e-mail et votre mot de passe et réessayer.";
         } else {
           description = errorData?.message || `Erreur: ${loginErrorData.status}`;
         }
       } else if (isSerializedError(loginErrorData)) {
-        description = loginErrorData.message || "Un problème est survenu lors de la connexion."; // Texte en français
+        description = loginErrorData.message || "Un problème est survenu lors de la connexion.";
       }
       toast({
         variant: "destructive",
@@ -81,42 +80,52 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
       <div className="space-y-2">
-        <Label htmlFor="email">E-mail</Label> {/* Texte français direct */}
+        <Label htmlFor="email" className="pl-4">E-mail</Label>
         <Input
           id="email"
           type="email"
           placeholder="vous@exemple.com"
           {...register("email")}
           aria-invalid={errors.email ? "true" : "false"}
-          className={errors.email ? "border-destructive" : ""}
+          className={cn(
+            "bg-background border-0 rounded-full shadow-neumorphic-inset transition-shadow focus-visible:shadow-none focus-visible:ring-2 focus-visible:ring-ring",
+            errors.email && "focus-visible:ring-destructive"
+          )}
         />
-        {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+        {errors.email && <p className="pl-4 text-sm text-destructive">{errors.email.message}</p>}
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="password">Mot de passe</Label> {/* Texte français direct */}
+        <Label htmlFor="password" className="pl-4">Mot de passe</Label>
         <Input
           id="password"
           type="password"
           placeholder="••••••••"
           {...register("password")}
           aria-invalid={errors.password ? "true" : "false"}
-          className={errors.password ? "border-destructive" : ""}
+          className={cn(
+            "bg-background border-0 rounded-full shadow-neumorphic-inset transition-shadow focus-visible:shadow-none focus-visible:ring-2 focus-visible:ring-ring",
+            errors.password && "focus-visible:ring-destructive"
+          )}
         />
-        {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+        {errors.password && <p className="pl-4 text-sm text-destructive">{errors.password.message}</p>}
       </div>
       
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button 
+        type="submit" 
+        className="w-full rounded-full bg-background text-foreground hover:bg-background hover:text-primary shadow-neumorphic active:shadow-neumorphic-inset transition-all" 
+        disabled={isLoading}
+      >
         {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
-        {isLoading ? "Connexion..." : "Se connecter"} {/* Texte français direct */}
+        {isLoading ? "Connexion..." : "Se connecter"}
       </Button>
 
       <p className="text-center text-sm text-muted-foreground">
-        Pas encore de compte ?{" "} {/* Texte français direct */}
+        Pas encore de compte ?{" "}
         <Link href={`/fr/register`} className="font-medium text-primary hover:underline">
-          S'inscrire {/* Texte français direct */}
+          S'inscrire
         </Link>
       </p>
     </form>
