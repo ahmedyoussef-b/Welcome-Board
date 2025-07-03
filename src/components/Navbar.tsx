@@ -12,7 +12,7 @@ import { selectUnreadCount } from '@/lib/redux/slices/notificationSlice';
 import type { SafeUser, Role } from "@/types";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu as MenuIcon } from "lucide-react";
 import Menu from "@/components/Menu";
@@ -89,7 +89,8 @@ const Navbar = () => {
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-[280px]">
                     <div className="h-full bg-sidebar text-sidebar-foreground flex flex-col">
-                        <div className="p-4 border-b border-sidebar-border">
+                        <SheetHeader className="p-4 border-b border-sidebar-border">
+                            <SheetTitle className="sr-only">Menu Principal</SheetTitle>
                             <Link
                                 href={rolePath ? `/${locale}/${rolePath}` : `/${locale}`}
                                 className="flex items-center gap-2 flex-shrink-0"
@@ -97,7 +98,7 @@ const Navbar = () => {
                                 <Image src="/logo.png" alt="logo" width={32} height={32} data-ai-hint="logo company" priority />
                                 <span className="font-bold text-lg text-sidebar-primary-foreground">SchooLama</span>
                             </Link>
-                        </div>
+                        </SheetHeader>
                         <div className="flex-grow overflow-y-auto">
                             <Menu />
                         </div>
