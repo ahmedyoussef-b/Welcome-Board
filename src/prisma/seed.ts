@@ -1,3 +1,4 @@
+
 // prisma/seed.ts
 import { PrismaClient, Role, UserSex, Day } from '@prisma/client';
 import bcrypt from 'bcryptjs';
@@ -118,7 +119,7 @@ async function main() {
     createdTeachers.push(await prisma.teacher.create({ data: { userId: user.id, name: 'Professeur', surname: `Sportif ${i}`, sex: UserSex.MALE, birthday: new Date(), bloodType: 'A+', subjects: { connect: { id: subjectMap.get('EDUCATION SPORTIVE')!.id } } } }));
   }
   for (let i = 1; i <= 2; i++) {
-    const user = await prisma.user.create({ data: { email: `prof.musique${i}@example.com`, username: `prof.musique${i}`, password: hashedPassword, role: Role.TEACHER, name: `Prof Musique ${i}`, active: true } });
+    const user = await prisma.user.create({ data: { email: `prof.musi${i}@example.com`, username: `prof.musi${i}`, password: hashedPassword, role: Role.TEACHER, name: `Prof Musique ${i}`, active: true } });
     createdTeachers.push(await prisma.teacher.create({ data: { userId: user.id, name: 'Professeur', surname: `Musical ${i}`, sex: UserSex.FEMALE, birthday: new Date(), bloodType: 'B+', subjects: { connect: { id: subjectMap.get('MUSIQUE')!.id } } } }));
   }
   const artUser = await prisma.user.create({ data: { email: 'prof.art1@example.com', username: 'prof.art1', password: hashedPassword, role: Role.TEACHER, name: 'Prof Art 1', active: true } });
