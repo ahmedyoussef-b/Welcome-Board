@@ -1,12 +1,14 @@
-
+// src/components/chatroom/session/VideoTile.tsx
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Video, VideoOff, Mic, MicOff, Hand, Crown, Trophy, Award, BarChartHorizontal, Eye } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Hand, Crown, Trophy, Award, BarChartHorizontal, Eye, Star } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface VideoTileProps {
   name: string;
@@ -15,6 +17,11 @@ interface VideoTileProps {
   hasRaisedHand?: boolean;
   points?: number;
   badgeCount?: number;
+  isMuted?: boolean;
+  isHost: boolean;
+  isSpotlighted: boolean;
+  onToggleMute: () => void;
+  onToggleSpotlight: () => void;
 }
 
 export default function VideoTile({ 
@@ -23,25 +30,13 @@ export default function VideoTile({
   isTeacher = false, 
   hasRaisedHand = false,
   points = 0,
-  badgeCount = 0
+  badgeCount = 0,
+  isMuted = false,
+  isHost,
+  isSpotlighted,
+  onToggleMute,
+  onToggleSpotlight,
 }: VideoTileProps) {
-  const [attention, setAttention] = useState(0);
-  const [speakingTime, setSpeakingTime] = useState(0);
-
-  useEffect(() => {
-    // Only simulate for students
-    if (!isTeacher) {
-      setAttention(Math.floor(Math.random() * 50) + 50); // Random score between 50 and 100
-
-      const interval = setInterval(() => {
-        if (isOnline && Math.random() > 0.7) { // 30% chance of "speaking"
-            setSpeakingTime(prev => prev + 1);
-        }
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isOnline, isTeacher]);
 
   const getInitials = (fullName: string) => {
     return fullName
@@ -54,30 +49,20 @@ export default function VideoTile({
 
   const getRankIcon = () => {
     if (!points || points === 0) return null;
-    
     if (points >= 50) return <Crown className="w-3 h-3 text-yellow-500" />;
     if (points >= 20) return <Trophy className="w-3 h-3 text-orange-500" />;
     if (points >= 5) return <Award className="w-3 h-3 text-blue-500" />;
     return null;
   };
 
-  const formatSpeakingTime = (seconds: number) => {
-      const m = Math.floor(seconds / 60);
-      const s = seconds % 60;
-      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  };
-
-  const getAttentionColor = (score: number) => {
-      if (score > 80) return "bg-green-500";
-      if (score > 60) return "bg-yellow-500";
-      return "bg-red-500";
-  }
-
   return (
-    <Card className={`relative overflow-hidden transition-all duration-300 shadow-lg cursor-grab ${
-      hasRaisedHand ? 'ring-2 ring-orange-500 ring-opacity-75' : ''
-    } ${!isOnline ? 'opacity-50 grayscale' : ''}`}>
-      <CardContent className="p-2">
+    <Card className={cn(
+        `relative overflow-hidden transition-all duration-300 shadow-lg cursor-grab w-full h-full`,
+        hasRaisedHand && 'ring-2 ring-orange-500',
+        isSpotlighted && 'ring-4 ring-yellow-400',
+        !isOnline && 'opacity-50 grayscale'
+    )}>
+      <CardContent className="p-2 flex flex-col h-full">
         <div className="absolute top-2 right-2 flex gap-1 z-10">
           {hasRaisedHand && (
             <Badge variant="secondary" className="p-1 bg-orange-500 hover:bg-orange-600 animate-pulse">
@@ -86,35 +71,40 @@ export default function VideoTile({
           )}
         </div>
 
-        <div className="aspect-video bg-gray-900 rounded-lg mb-2 flex items-center justify-center relative">
+        <div className="aspect-video bg-gray-900 rounded-lg mb-2 flex items-center justify-center relative group/tile">
           <Avatar className="w-16 h-16">
-            <AvatarFallback className={`text-lg font-semibold ${
-              isTeacher ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'
-            }`}>
+            <AvatarFallback className={cn(
+                'text-lg font-semibold',
+                isTeacher ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'
+            )}>
               {getInitials(name)}
             </AvatarFallback>
           </Avatar>
           
           <div className="absolute bottom-1 left-1 flex gap-1">
             <Badge variant="secondary" className="p-1 bg-black/30 border-none text-white">
-              {Math.random() > 0.3 ? (
-                <Video className="w-3 h-3" />
-              ) : (
-                <VideoOff className="w-3 h-3" />
-              )}
+              <Video className="w-3 h-3" />
             </Badge>
             <Badge variant="secondary" className="p-1 bg-black/30 border-none text-white">
-              {Math.random() > 0.2 ? (
-                <Mic className="w-3 h-3" />
-              ) : (
-                <MicOff className="w-3 h-3" />
-              )}
+              {isMuted ? <MicOff className="w-3 h-3 text-red-400" /> : <Mic className="w-3 h-3" />}
             </Badge>
           </div>
 
-          <div className={`absolute top-1.5 left-1.5 w-3 h-3 rounded-full border-2 border-gray-900 ${
-            isOnline ? 'bg-green-500' : 'bg-gray-400'
-          }`} />
+          <div className={cn(
+              'absolute top-1.5 left-1.5 w-3 h-3 rounded-full border-2 border-gray-900',
+              isOnline ? 'bg-green-500' : 'bg-gray-400'
+          )} />
+
+          {isHost && !isTeacher && (
+              <div className="absolute top-1 right-1 opacity-0 group-hover/tile:opacity-100 transition-opacity flex gap-1">
+                  <Button size="icon" className="h-7 w-7 bg-black/40 hover:bg-black/70" onClick={onToggleMute}>
+                      {isMuted ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                  </Button>
+                  <Button size="icon" className="h-7 w-7 bg-black/40 hover:bg-black/70" onClick={onToggleSpotlight}>
+                      <Star className={cn("w-4 h-4", isSpotlighted && "fill-current text-yellow-400")} />
+                  </Button>
+              </div>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -141,21 +131,6 @@ export default function VideoTile({
             </div>
           )}
         </div>
-        
-        {!isTeacher && (
-            <div className="mt-2 pt-2 border-t border-gray-100 space-y-2">
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <Eye className="w-3 h-3"/>
-                    <span className="font-medium w-16">Attention:</span>
-                    <Progress value={attention} className="h-1.5 flex-1" indicatorClassName={getAttentionColor(attention)} />
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-500">
-                    <BarChartHorizontal className="w-3 h-3" />
-                    <span className="font-medium w-16">Parole:</span>
-                    <span className="font-mono">{formatSpeakingTime(speakingTime)}</span>
-                </div>
-            </div>
-        )}
       </CardContent>
     </Card>
   );

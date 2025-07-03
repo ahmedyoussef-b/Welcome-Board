@@ -23,6 +23,7 @@ export interface SessionParticipant {
   raisedHandAt?: string;
   points: number;
   badges: Badge[];
+  isMuted?: boolean;
 }
 
 export interface ClassRoom {
@@ -116,6 +117,7 @@ export interface ActiveSession {
     remaining: number;
     isActive: boolean;
   } | null;
+  spotlightedParticipantId?: string | null;
 }
 
 export interface ChatMessage {
@@ -330,7 +332,8 @@ const sessionSlice = createSlice({
           isInSession: true, 
           hasRaisedHand: false,
           points: s.points || 0,
-          badges: s.badges || []
+          badges: s.badges || [],
+          isMuted: false,
         })),
         startTime: new Date().toISOString(),
         raisedHands: [],
@@ -341,6 +344,7 @@ const sessionSlice = createSlice({
         activeQuiz: undefined,
         rewardActions: [],
         classTimer: null,
+        spotlightedParticipantId: null,
       };
       state.chatMessages = [];
     },
@@ -351,7 +355,7 @@ const sessionSlice = createSlice({
             sessionType: 'meeting',
             classId: 'admin-meeting', 
             className: meetingTitle,
-            participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [] })),
+            participants: participants.map(p => ({ ...p, isInSession: true, points: 0, badges: [], isMuted: false })),
             startTime: new Date().toISOString(),
             raisedHands: [],
             reactions: [],
@@ -359,6 +363,7 @@ const sessionSlice = createSlice({
             quizzes: [],
             rewardActions: [],
             classTimer: null,
+            spotlightedParticipantId: null,
         };
         state.chatMessages = [];
     },
@@ -385,7 +390,8 @@ const sessionSlice = createSlice({
           isInSession: true, 
           hasRaisedHand: false,
           points: action.payload.points || 0,
-          badges: action.payload.badges || []
+          badges: action.payload.badges || [],
+          isMuted: false,
         });
       }
     },
@@ -766,6 +772,40 @@ const sessionSlice = createSlice({
           state.activeSession.classTimer.isActive = false;
       }
     },
+    // Advanced Moderation Actions
+    toggleMute: (state, action: PayloadAction<string>) => {
+        const participant = state.activeSession?.participants.find(p => p.id === action.payload);
+        if (participant) {
+            participant.isMuted = !participant.isMuted;
+        }
+    },
+    muteAllStudents: (state) => {
+        if (state.activeSession) {
+            state.activeSession.participants.forEach(p => {
+                if (p.role === 'student') {
+                    p.isMuted = true;
+                }
+            });
+        }
+    },
+    unmuteAllStudents: (state) => {
+        if (state.activeSession) {
+            state.activeSession.participants.forEach(p => {
+                if (p.role === 'student') {
+                    p.isMuted = false;
+                }
+            });
+        }
+    },
+    toggleSpotlight: (state, action: PayloadAction<string>) => {
+        if (state.activeSession) {
+            if (state.activeSession.spotlightedParticipantId === action.payload) {
+                state.activeSession.spotlightedParticipantId = null;
+            } else {
+                state.activeSession.spotlightedParticipantId = action.payload;
+            }
+        }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -826,6 +866,10 @@ export const {
   resetTimer,
   stopTimer,
   tickTimer,
+  toggleMute,
+  muteAllStudents,
+  unmuteAllStudents,
+  toggleSpotlight,
 } = sessionSlice.actions;
 
 export default sessionSlice.reducer;

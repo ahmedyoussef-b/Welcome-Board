@@ -1,18 +1,18 @@
 // src/components/chatroom/session/tabs/OverviewTab.tsx
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import VideoTile from '../VideoTile';
-import { Video } from 'lucide-react';
+import { Video, UserX, Star } from 'lucide-react';
 import type { ActiveSession, SafeUser } from '@/types';
-import { useState } from 'react';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
+import { moveParticipant, toggleMute, toggleSpotlight } from '@/lib/redux/slices/sessionSlice';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { DndContext, closestCenter, MouseSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, useSortable, rectSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useAppDispatch } from '@/hooks/redux-hooks';
-import { moveParticipant } from '@/lib/redux/slices/sessionSlice';
 
-const DraggableVideoTile = ({ participant, user }: { participant: any, user: SafeUser | null }) => {
+const DraggableVideoTile = ({ participant, user, isHost }: { participant: any, user: SafeUser | null, isHost: boolean }) => {
+    const dispatch = useAppDispatch();
     const {
         attributes,
         listeners,
@@ -36,6 +36,11 @@ const DraggableVideoTile = ({ participant, user }: { participant: any, user: Saf
               hasRaisedHand={participant.hasRaisedHand}
               points={participant.points}
               badgeCount={participant.badges?.length}
+              isMuted={participant.isMuted}
+              isHost={isHost}
+              onToggleMute={() => dispatch(toggleMute(participant.id))}
+              onToggleSpotlight={() => dispatch(toggleSpotlight(participant.id))}
+              isSpotlighted={false}
             />
         </div>
     );
@@ -48,6 +53,9 @@ interface OverviewTabProps {
 
 export default function OverviewTab({ activeSession, user }: OverviewTabProps) {
   const dispatch = useAppDispatch();
+  const spotlightedParticipantId = useAppSelector(state => state.session.activeSession?.spotlightedParticipantId);
+  const isHost = user?.role === 'TEACHER' || user?.role === 'ADMIN';
+
   const onlineCount = activeSession.participants.filter(p => p.isOnline).length;
   const sensors = useSensors(useSensor(MouseSensor), useSensor(TouchSensor));
 
@@ -61,32 +69,79 @@ export default function OverviewTab({ activeSession, user }: OverviewTabProps) {
     }
   }
 
-  return (
-    <Card className="shadow-lg">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Video className="w-5 h-5" />
-          Participants ({onlineCount} connectés)
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-          <DndContext 
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext 
-              items={activeSession.participants.map(p => p.id)}
-              strategy={rectSortingStrategy}
-            >
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {activeSession.participants.map((participant) => (
-                    <DraggableVideoTile key={participant.id} participant={participant} user={user} />
-                ))}
+  if (spotlightedParticipantId) {
+    const spotlightedParticipant = activeSession.participants.find(p => p.id === spotlightedParticipantId);
+    const otherParticipants = activeSession.participants.filter(p => p.id !== spotlightedParticipantId);
+
+    return (
+      <div className="flex flex-col h-full gap-4">
+        {spotlightedParticipant ? (
+          <div className="flex-1 min-h-0">
+            <VideoTile
+                name={spotlightedParticipant.name}
+                isOnline={spotlightedParticipant.isOnline}
+                isTeacher={spotlightedParticipant.role === 'teacher' || spotlightedParticipant.role === 'admin'}
+                hasRaisedHand={spotlightedParticipant.hasRaisedHand}
+                points={spotlightedParticipant.points}
+                badgeCount={spotlightedParticipant.badges?.length}
+                isMuted={spotlightedParticipant.isMuted}
+                isHost={isHost}
+                onToggleMute={() => dispatch(toggleMute(spotlightedParticipant.id))}
+                onToggleSpotlight={() => dispatch(toggleSpotlight(spotlightedParticipant.id))}
+                isSpotlighted={true}
+              />
+          </div>
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-muted rounded-lg">
+            <UserX className="w-12 h-12 text-muted-foreground"/>
+            <p className="ml-4 text-muted-foreground">Participant non trouvé</p>
+          </div>
+        )}
+        <div className="flex-shrink-0">
+          <ScrollArea className="w-full">
+            <div className="flex gap-4 pb-4">
+              {otherParticipants.map(p => (
+                <div key={p.id} className="w-48 flex-shrink-0">
+                   <VideoTile
+                    name={p.name}
+                    isOnline={p.isOnline}
+                    isTeacher={p.role === 'teacher' || p.role === 'admin'}
+                    hasRaisedHand={p.hasRaisedHand}
+                    points={p.points}
+                    badgeCount={p.badges?.length}
+                    isMuted={p.isMuted}
+                    isHost={isHost}
+                    onToggleMute={() => dispatch(toggleMute(p.id))}
+                    onToggleSpotlight={() => dispatch(toggleSpotlight(p.id))}
+                    isSpotlighted={false}
+                  />
                 </div>
-            </SortableContext>
-          </DndContext>
-      </CardContent>
-    </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="h-full">
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext 
+          items={activeSession.participants.map(p => p.id)}
+          strategy={rectSortingStrategy}
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {activeSession.participants.map((participant) => (
+              <DraggableVideoTile key={participant.id} participant={participant} user={user} isHost={isHost} />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
   );
 }

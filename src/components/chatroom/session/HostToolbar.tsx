@@ -2,7 +2,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, Monitor, Pencil } from 'lucide-react';
+import { LayoutGrid, Monitor, Pencil, MicOff, Mic } from 'lucide-react';
+import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
+import { muteAllStudents, unmuteAllStudents } from '@/lib/redux/slices/sessionSlice';
 
 type ViewMode = 'grid' | 'screenShare' | 'whiteboard';
 
@@ -13,10 +15,21 @@ interface HostToolbarProps {
 }
 
 export default function HostToolbar({ viewMode, onSetViewMode, onStartScreenShare }: HostToolbarProps) {
+  const dispatch = useAppDispatch();
+  const participants = useAppSelector(state => state.session.activeSession?.participants || []);
+  const areAllStudentsMuted = participants.filter(p => p.role === 'student').every(p => p.isMuted);
 
   const handleShareClick = () => {
     // Let the parent component handle the logic, which might include setting the view mode
     onStartScreenShare();
+  };
+
+  const handleToggleMuteAll = () => {
+    if (areAllStudentsMuted) {
+      dispatch(unmuteAllStudents());
+    } else {
+      dispatch(muteAllStudents());
+    }
   };
 
   return (
@@ -47,6 +60,15 @@ export default function HostToolbar({ viewMode, onSetViewMode, onStartScreenShar
       >
         <Pencil className="w-4 h-4" />
         Tableau Blanc
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleToggleMuteAll}
+        className="flex items-center gap-2"
+      >
+        {areAllStudentsMuted ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+        {areAllStudentsMuted ? "Activer les micros" : "Couper les micros"}
       </Button>
     </div>
   );
