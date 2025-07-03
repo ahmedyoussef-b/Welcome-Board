@@ -1,17 +1,19 @@
-
+// src/components/chatroom/dashboard/StudentSelector.tsx
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Search, Video } from 'lucide-react';
+import { Search, Video, Loader2 } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hooks';
 import { toggleStudentSelection, startSession } from '@/lib/redux/slices/sessionSlice';
 import type { ClassRoom, SessionParticipant } from '@/lib/redux/slices/sessionSlice';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { useToast } from "@/hooks/use-toast";
 
 interface StudentSelectorProps {
   classroom: ClassRoom;
@@ -21,7 +23,9 @@ interface StudentSelectorProps {
 export default function StudentSelector({ classroom, templateId }: StudentSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const dispatch = useAppDispatch();
-  const { selectedStudents } = useAppSelector(state => state.session);
+  const { toast } = useToast();
+  const router = useRouter();
+  const { selectedStudents, loading } = useAppSelector(state => state.session);
 
   const filteredStudents = classroom.students.filter(student =>
     student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -32,16 +36,30 @@ export default function StudentSelector({ classroom, templateId }: StudentSelect
     dispatch(toggleStudentSelection(studentId));
   };
 
-  const handleStartSession = () => {
+  const handleStartSession = async () => {
     if (selectedStudents.length === 0) return;
     
-    dispatch(startSession({
-      classId: String(classroom.id),
-      className: classroom.name,
-      templateId: templateId || undefined,
-    }));
-    
-    console.log('Notifications envoyées aux élèves:', selectedStudents);
+    try {
+      const resultAction = await dispatch(startSession({
+        classId: String(classroom.id),
+        participantIds: selectedStudents,
+        templateId: templateId || undefined,
+      }));
+
+      if (startSession.fulfilled.match(resultAction)) {
+        const newSession = resultAction.payload;
+        toast({ title: 'Session Démarrée', description: `La session pour ${classroom.name} a commencé.`});
+        router.push(`/fr/list/chatroom/session?sessionId=${newSession.id}`);
+      } else {
+        throw new Error(resultAction.payload as string || 'Failed to start session');
+      }
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Erreur",
+            description: error.message || "Impossible de démarrer la session."
+        });
+    }
   };
 
   return (
@@ -128,11 +146,11 @@ export default function StudentSelector({ classroom, templateId }: StudentSelect
       <div className="mt-6 pt-6 border-t">
         <Button
           onClick={handleStartSession}
-          disabled={selectedStudents.length === 0}
+          disabled={selectedStudents.length === 0 || loading}
           className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:from-gray-300 disabled:to-gray-400 py-6 text-lg font-medium"
         >
-          <Video className="w-5 h-5 mr-2" />
-          Lancer la session ({selectedStudents.length} élève{selectedStudents.length > 1 ? 's' : ''})
+          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="w-5 h-5 mr-2" />}
+          {loading ? 'Démarrage...' : `Lancer la session (${selectedStudents.length} élève${selectedStudents.length > 1 ? 's' : ''})`}
         </Button>
       </div>
     </div>

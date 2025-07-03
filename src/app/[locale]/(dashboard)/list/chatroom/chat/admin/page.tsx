@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/list/chatroom/chat/admin/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -29,48 +30,39 @@ export default function AdminMeetingDashboard() {
     }
     
     if (activeSession) {
-      router.replace('/fr/list/chatroom/session');
+      router.replace(`/fr/list/chatroom/session?sessionId=${activeSession.id}`);
     }
 
     dispatch(fetchMeetingParticipants());
   }, [user, activeSession, router, dispatch]);
 
-  const handleStartMeeting = () => {
+  const handleStartMeeting = async () => {
     if (selectedTeachers.length === 0 || !meetingTitle.trim()) {
       return;
     }
-    
-    const adminParticipant: SessionParticipant = {
-      id: user.id,
-      name: user.name || 'Admin',
-      email: user.email,
-      role: 'admin',
-      img: user.img,
-      isOnline: true,
-      isInSession: true,
-      points: 0,
-      badges: [],
-    };
-    
-    const selectedParticipants = meetingCandidates.filter((teacher: SessionParticipant)  =>
-      selectedTeachers.includes(teacher.id)
-    );
-    
-    const allParticipants = [adminParticipant, ...selectedParticipants];
 
-    dispatch(startMeeting({
-      meetingTitle,
-      participants: allParticipants,
-    }));
-    
-    dispatch(addNotification({
-      type: 'session_started',
-      title: 'Réunion démarrée',
-      message: `La réunion "${meetingTitle}" a commencé.`,
-    }));
+    try {
+      const resultAction = await dispatch(startMeeting({
+        title: meetingTitle,
+        participantIds: selectedTeachers,
+      }));
 
-    router.replace('/fr/list/chatroom/session');
+      if (startMeeting.fulfilled.match(resultAction)) {
+        const newSession = resultAction.payload;
+        dispatch(addNotification({
+          type: 'session_started',
+          title: 'Réunion démarrée',
+          message: `La réunion "${newSession.title}" a commencé.`,
+        }));
+        router.push(`/fr/list/chatroom/session?sessionId=${newSession.id}`);
+      } else {
+        throw new Error('Failed to start meeting');
+      }
+    } catch (error) {
+      console.error("Failed to start meeting:", error);
+    }
   };
+
 
   if (loading && meetingCandidates.length === 0) {
     return (
@@ -122,8 +114,9 @@ export default function AdminMeetingDashboard() {
                   onClick={handleStartMeeting}
                   size="lg"
                   className="w-full"
+                  disabled={loading}
                 >
-                  <Video className="w-5 h-5" />
+                  {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Video className="w-5 h-5" />}
                   Démarrer la réunion ({selectedTeachers.length} invité{selectedTeachers.length > 1 ? 's' : ''})
                 </Button>
               </div>

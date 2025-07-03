@@ -1,79 +1,79 @@
-
+// src/app/[locale]/(dashboard)/list/chatroom/session/page.tsx
 'use client';
 
 import { useAppSelector, useAppDispatch } from '@/hooks/redux-hooks';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import SessionRoom from '@/components/chatroom/session/SessionRoom';
-import { endSession } from '@/lib/redux/slices/sessionSlice';
-import { addSessionReport, type SessionReport } from '@/lib/redux/slices/reportSlice';
-import { useRouter } from 'next/navigation';
+import { endSession, fetchSessionState } from '@/lib/redux/slices/sessionSlice';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { addNotification } from '@/lib/redux/slices/notificationSlice';
 import { selectCurrentUser } from '@/lib/redux/slices/authSlice';
+import { useEffect } from 'react';
+import { Spinner } from '@/components/ui/spinner';
+import Link from 'next/link';
 
 export default function SessionPage() {
     const dispatch = useAppDispatch();
     const router = useRouter();
-    const { activeSession } = useAppSelector(state => state.session);
+    const searchParams = useSearchParams();
+    const sessionId = searchParams.get('sessionId');
+
+    const { activeSession, loading } = useAppSelector(state => state.session);
     const user = useAppSelector(selectCurrentUser);
 
-    const handleEndSession = () => {
+    useEffect(() => {
+        if (sessionId && !activeSession && !loading) {
+            dispatch(fetchSessionState(sessionId));
+        } else if (!sessionId && !loading) {
+            router.replace('/fr/list/chatroom');
+        }
+    }, [sessionId, activeSession, loading, dispatch, router]);
+
+    const handleEndSession = async () => {
         if (!activeSession || !user) return;
     
-        const endTime = new Date();
-        const sessionDuration = (endTime.getTime() - new Date(activeSession.startTime).getTime()) / 1000;
-    
-        if (activeSession.sessionType === 'class') {
-            const report: SessionReport = {
-              id: activeSession.id,
-              classId: activeSession.classId,
-              className: activeSession.className,
-              teacherId: user.id,
-              teacherName: user.name || user.email,
-              startTime: activeSession.startTime,
-              endTime: endTime.toISOString(),
-              duration: Math.round(sessionDuration),
-              participants: activeSession.participants.map(p => {
-                const joinTime = new Date(activeSession.startTime); // Simplified; a real impl would track individual join times
-                const participantDuration = (endTime.getTime() - joinTime.getTime()) / 1000;
-                return {
-                  id: p.id,
-                  name: p.name,
-                  email: p.email,
-                  joinTime: activeSession.startTime,
-                  leaveTime: endTime.toISOString(),
-                  duration: Math.round(participantDuration),
-                };
-              }),
-              maxParticipants: activeSession.participants.length,
-              status: 'completed',
-            };
-            dispatch(addSessionReport(report));
-        }
+        try {
+            await dispatch(endSession(activeSession.id)).unwrap();
+            dispatch(addNotification({
+              type: 'session_ended',
+              title: 'Session terminée',
+              message: 'La session a été fermée.',
+            }));
         
-        dispatch(endSession());
-        dispatch(addNotification({
-          type: 'session_ended',
-          title: 'Session terminée',
-          message: 'La session a été fermée et le rapport a été généré.',
-        }));
-    
-        if (user.role === 'TEACHER') {
-            router.replace('/fr/list/chatroom/reports');
-        } else if (user.role === 'ADMIN') {
-            router.replace('/fr/admin/chatroom');
+            if (user.role === 'TEACHER') {
+                router.replace('/fr/list/chatroom/reports');
+            } else if (user.role === 'ADMIN') {
+                router.replace('/fr/admin/chatroom');
+            } else {
+                router.replace('/fr/dashboard');
+            }
+        } catch (error) {
+            console.error("Failed to end session:", error);
         }
     };
 
+    if (loading || !activeSession && sessionId) {
+        return (
+             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <Spinner size="lg" />
+                <p className="ml-4">Chargement de la session...</p>
+            </div>
+        );
+    }
+    
     if (!activeSession) {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Card className="w-full max-w-md shadow-lg">
-                    <CardHeader className="text-center">
-                        <CardTitle>Aucune session active</CardTitle>
+                <Card className="w-full max-w-md shadow-lg text-center p-8">
+                    <CardHeader>
+                        <CardTitle>Session non trouvée</CardTitle>
                         <CardDescription>
-                            Veuillez démarrer une session depuis le tableau de bord.
+                            Cette session n'est plus active ou l'ID est incorrect.
                         </CardDescription>
                     </CardHeader>
+                    <Link href="/fr/list/chatroom">
+                        <Button>Retour au tableau de bord</Button>
+                    </Link>
                 </Card>
             </div>
         );
